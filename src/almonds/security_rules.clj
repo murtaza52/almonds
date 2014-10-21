@@ -6,7 +6,7 @@
             [slingshot.slingshot :refer [throw+]]
             [plumbing.core :refer [defnk]]
             [schema.core :as s]
-            [almonds.resource :refer [Resource validate-all create]]))
+            [almonds.resource :refer [Resource create delete id validate validate-all]]))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; validations ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,6 +34,8 @@
            :from-port from-port
            :to-port to-port))
   (id [this ] this)
+  (delete? [this] true)
+  (update? [this] false)
   (delete [this]
           (aws-ec2/revoke-security-group-ingress
            :group-name group-name
@@ -41,10 +43,18 @@
            :ip-protocol ip-protocol
            :from-port from-port
            :to-port to-port))
-  (validate [this ]
+  (validate [this]
             ((validate-all valid-schema? valid-ports?) this)))
 
 ;;(create (map->SecurityRule {:cidr-ip "21.0.0.0/0" :ip-protocol "tcp" :from-port 22 :to-port 22 :group-name "mh-test-gp-1"}))
+
+;; (delete
+;;  (map->SecurityRule {:group-name "mh-test-gp-1", :cidr-ip "27.0.0.0/0", :ip-protocol "tcp", :from-port 7015, :to-port 7015}))
+
+;; (create (map->SecurityRule {:group-name "mh-test-gp-1", :cidr-ip "27.0.0.0/0", :ip-protocol "tcp", :from-port 7015, :to-port 7015}))
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; credentials ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

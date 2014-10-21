@@ -1,5 +1,6 @@
 (ns almonds.resource
-  (:require [slingshot.slingshot :refer [throw+]]))
+  (:require [slingshot.slingshot :refer [throw+]]
+            [clojure.pprint :refer [pprint]]))
 
 (defprotocol Resource
   "Defines the various operations that can be performed on a resource"
@@ -29,16 +30,20 @@
 
 (defn diff-all []
   (if (seq @commit-state)
-    (reset! diff-state
-            (apply merge-with
-                   concat
-                   (map diff (vals @commit-state))))
+    (do
+      (reset! diff-state
+              (apply merge-with
+                     concat
+                     (map diff (vals @commit-state))))
+      (pprint @diff-state))
     (throw+ {:operation :diff-all :msg "Please commit resources first."})))
 
 (def empty-diff? #(every? empty? (vals @diff-state)))
 
+(empty-diff?)
+
 (defn apply-diff []
-  (when empty-diff? (throw+ {:operation :diff-all :msg "No diffs to apply. Please diff-all first."}))
+  (when (empty-diff?) (throw+ {:operation :diff-all :msg "No diffs to apply. Please diff-all first."}))
   (reset! problem-state {:to-create [] :to-update [] :to-delete []})
   (let [{:keys [to-create to-update to-delete]} @diff-state]
     (doseq [r to-create]

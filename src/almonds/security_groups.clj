@@ -8,7 +8,7 @@
             [schema.core :as s]
             [almonds.security-rules :as rules]
             [clojure.set :refer [difference]]
-            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit]]))
+            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit apply-diff]]))
 
 (defn swap-key [m key-to-replace key]
   (-> m
@@ -73,7 +73,7 @@
 (def gp3 (->SecurityGroup "mh-test-gp-1"
                           "Securityy Group for CADC server"
                           (into #{} (map rules/map->SecurityRule
-                                    #{{:group-name "mh-test-gp-1" :cidr-ip "22.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
+                                    #{{:group-name "mh-test-gp-1" :cidr-ip "24.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
                                       {:group-name "mh-test-gp-1" :cidr-ip "25.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}}))))
 
 
@@ -88,9 +88,14 @@
 
           (delete gp3)
 
+          (commit gp3)
+
           (diff gp3)
 
-          (diff-all))
+          (diff-all)
+
+          (apply-diff)
+          )
 
 
 (with-handler! #'retrieve-raw
@@ -115,6 +120,8 @@
 (def gp1 {:group-name "mh-test-gp-1"
           :description "Security Group for CADC server"
           :rules #{{:cidr-ip "21.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
+                   {:cidr-ip "26.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
+                   {:cidr-ip "71.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
                    {:cidr-ip "21.0.0.0/0" :ip-protocol "udp" :from-port 7015 :to-port 7015}}})
 
 (def gp2 {:group-name "mh-test-gp-2"

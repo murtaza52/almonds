@@ -23,6 +23,8 @@
 (def commit-state (atom {}))
 (def diff-state (atom {:to-create [] :to-update [] :to-delete []}))
 (def problem-state (atom {:to-create [] :to-update [] :to-delete []}))
+(def cf-state-generated (atom {}))
+
 
 (defn validate-all [& fns]
   (fn [resource]
@@ -44,6 +46,13 @@
                      (map diff (vals @commit-state))))
       (pprint @diff-state))
     (throw+ {:operation :diff-all :msg "Please commit resources first."})))
+
+(defn cf-all []
+  (if (seq @commit-state)
+    (do
+      (reset! cf-state-generated
+              (map cf (vals @commit-state))))
+    (throw+ {:operation :cf-all :msg "Please commit resources first."})))
 
 (def empty-diff? #(every? empty? (vals @diff-state)))
 

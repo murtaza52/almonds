@@ -68,7 +68,7 @@
   (dependents [this]
     (apply vector rules))
   (cf [this]
-    (to-json {:instance-security-group {:type "AWS::EC2::SecurityGroup"
+    (to-json {group-name {:type "AWS::EC2::SecurityGroup"
                                         :properties {:group-description description
                                                      :security-group-ingress (map cf rules)}}})))
 

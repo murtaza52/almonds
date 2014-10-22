@@ -6,7 +6,7 @@
             [slingshot.slingshot :refer [throw+]]
             [plumbing.core :refer [defnk]]
             [schema.core :as s]
-            [almonds.resource :refer [Resource create delete id validate validate-all]]))
+            [almonds.resource :refer [Resource create delete id validate validate-all to-json cf]]))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; validations ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -44,9 +44,17 @@
            :from-port from-port
            :to-port to-port))
   (validate [this]
-            ((validate-all valid-schema? valid-ports?) this)))
+            ((validate-all valid-schema? valid-ports?) this))
+  (cf [this]
+    (to-json {:ip-protocol ip-protocol
+              :cidr-ip cidr-ip
+              :to-port to-port
+              :from-port from-port})))
 
-;;(create (map->SecurityRule {:cidr-ip "21.0.0.0/0" :ip-protocol "tcp" :from-port 22 :to-port 22 :group-name "mh-test-gp-1"}))
+(cf
+  (map->SecurityRule {:cidr-ip "21.0.0.0/0" :ip-protocol "tcp" :from-port 22 :to-port 22 :group-name "mh-test-gp-1"}))
+
+(map->SecurityRule {:cidr-ip "21.0.0.0/0" :ip-protocol "tcp" :from-port 22 :to-port 22 :group-name "mh-test-gp-1"})
 
 ;; (delete
 ;;  (map->SecurityRule {:group-name "mh-test-gp-1", :cidr-ip "27.0.0.0/0", :ip-protocol "tcp", :from-port 7015, :to-port 7015}))

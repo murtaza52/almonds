@@ -7,4 +7,7 @@
                  [dire "0.5.2"]
                  [prismatic/plumbing "0.3.3"]
                  [org.clojure/tools.namespace "0.2.4"]
-                 [prismatic/schema "0.2.6"]])
+                 [prismatic/schema "0.2.6"]
+                 [cheshire "5.3.1"]
+                 [camel-snake-kebab "0.2.4"]
+                 [org.clojure/data.json "0.2.5"]])

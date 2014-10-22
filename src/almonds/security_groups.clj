@@ -8,7 +8,7 @@
             [schema.core :as s]
             [almonds.security-rules :as rules]
             [clojure.set :refer [difference]]
-            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit apply-diff]]))
+            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit apply-diff to-json cf]]))
 
 (defn swap-key [m key-to-replace key]
   (-> m
@@ -66,7 +66,12 @@
     (when-let [gp (retrieve-raw this)]
       (map->SecurityGroup (update-in (sanitize-group gp) [:rules] #(sanitize-rules % group-name)))))
   (dependents [this]
-    (apply vector rules)))
+    (apply vector rules))
+  (cf [this]
+    (to-json {:instance-security-group {:type "AWS::EC2::SecurityGroup"
+                                        :properties {:group-description description
+                                                     :security-group-ingress (map cf rules)}}})))
+
 
 ;; add to the global cache
 ;;
@@ -76,6 +81,8 @@
                                     #{{:group-name "mh-test-gp-1" :cidr-ip "24.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
                                       {:group-name "mh-test-gp-1" :cidr-ip "25.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}}))))
 
+
+(cf gp3)
 
 ;;(commit gp3)
 

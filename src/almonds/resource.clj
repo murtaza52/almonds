@@ -1,6 +1,9 @@
 (ns almonds.resource
   (:require [slingshot.slingshot :refer [throw+]]
-            [clojure.pprint :refer [pprint]]))
+            [clojure.pprint :refer [pprint]]
+            [cheshire.core :refer [generate-string]]
+            [camel-snake-kebab.core :refer [->CamelCase]]
+            [clojure.data.json :refer [write-str]]))
 
 (defprotocol Resource
   "Defines the various operations that can be performed on a resource"
@@ -14,7 +17,8 @@
   (validate [resource] "Validates the resource definition")
   (dependents [resource] "Returns a list of child resources")
   (retrieve-raw [resource] "Returns the raw data retrieved for the resource from the provider.")
-  (diff [resource] "Returns a vector of vectors of resources for [create update delete]"))
+  (diff [resource] "Returns a vector of vectors of resources for [create update delete]")
+  (cf [resource] "Returns the json represntation for cf"))
 
 (def commit-state (atom {}))
 (def diff-state (atom {:to-create [] :to-update [] :to-delete []}))
@@ -23,6 +27,9 @@
 (defn validate-all [& fns]
   (fn [resource]
     (every? true? ((apply juxt fns) resource))))
+
+(defn to-json [m]
+  (generate-string m {:key-fn (comp name ->CamelCase)}))
 
 (defn commit [resource]
   (when (validate resource)

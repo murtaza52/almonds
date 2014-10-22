@@ -10,7 +10,7 @@
             [clojure.set :refer [difference]]
             [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit]]))
 
-;;(aws-ec2/)
+;;(aws-ec2/create-vpc )
 
 ;; (defrecord VPC []
 ;;   Resource

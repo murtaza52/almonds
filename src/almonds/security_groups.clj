@@ -34,6 +34,8 @@
       (dissoc :tags :ip-permissions-egress :owner-id :group-id)
       (swap-key :ip-permissions :rules)))
 
+
+
 (defrecord SecurityGroup [group-name description rules]
   Resource
   (id [this]
@@ -69,8 +71,8 @@
     (apply vector rules))
   (cf [this]
     (to-json {group-name {:type "AWS::EC2::SecurityGroup"
-                                        :properties {:group-description description
-                                                     :security-group-ingress (map cf rules)}}})))
+                          :properties {:group-description description
+                                       :security-group-ingress (map cf rules)}}})))
 
 
 ;; add to the global cache
@@ -78,8 +80,8 @@
 (def gp3 (->SecurityGroup "mh-test-gp-1"
                           "Securityy Group for CADC server"
                           (into #{} (map rules/map->SecurityRule
-                                    #{{:group-name "mh-test-gp-1" :cidr-ip "24.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
-                                      {:group-name "mh-test-gp-1" :cidr-ip "25.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}}))))
+                                         #{{:group-name "mh-test-gp-1" :cidr-ip "24.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}
+                                           {:group-name "mh-test-gp-1" :cidr-ip "25.0.0.0/0" :ip-protocol "tcp" :from-port 7015 :to-port 7015}}))))
 
 
 (cf gp3)
@@ -89,20 +91,20 @@
 (comment
   (retrieve gp3)
 
-          (create gp3)
+  (create gp3)
 
-          (map create  (update gp3))
+  (map create  (update gp3))
 
-          (delete gp3)
+  (delete gp3)
 
-          (commit gp3)
+  (commit gp3)
 
-          (diff gp3)
+  (diff gp3)
 
-          (diff-all)
+  (diff-all)
 
-          (apply-diff)
-          )
+  (apply-diff)
+  )
 
 
 (with-handler! #'retrieve-raw

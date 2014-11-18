@@ -10,4 +10,8 @@
                  [prismatic/schema "0.2.6"]
                  [cheshire "5.3.1"]
                  [camel-snake-kebab "0.2.4"]
-                 [org.clojure/data.json "0.2.5"]])
+                 [org.clojure/data.json "0.2.5"]
+                 [environ "1.0.0"]
+                 [midje "1.6.3"]]
+  :plugins [[lein-environ "1.0.0"]
+            [lein-midje "3.1.3"]])

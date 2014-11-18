@@ -18,13 +18,52 @@
   (dependents [resource] "Returns a list of child resources")
   (retrieve-raw [resource] "Returns the raw data retrieved for the resource from the provider.")
   (diff [resource] "Returns a vector of vectors of resources for [create update delete]")
-  (cf [resource] "Returns the json represntation for cf"))
+  (cf [resource] "Returns the json represntation for cf")
+  (tf [resource] "Returns the json representation for tf")
+  (tf-id [resource] "eturns the ")
+  (retrieve-raw-all [resource] "Returns all resources for the type.")
+  (aws-id [resource] "ID assigned by AWS"))
+
+(defprotocol VpnConnection
+  (is-up? [resource] "Returns true if the VPN Connection is up")
+  (is-static? [resource] "Returns true if the connection is static")
+  (has-route? [resource route] "Returns true if it has the route"))
+
+(defprotocol VirtualPrivateGateway
+  (is-attached? [resource] "Returns true if the gateway is attached to a VPC."))
+
+(defprotocol RouteTable
+  (route-propogation? [route-table virtual-private-gateway] "Returns true if the route propogationfor the virtual provate gateway for the route table is turned on."))
 
 (def commit-state (atom {}))
 (def diff-state (atom {:to-create [] :to-update [] :to-delete []}))
 (def problem-state (atom {:to-create [] :to-update [] :to-delete []}))
 (def cf-state-generated (atom {}))
 
+(defn get-resource [id-tag coll]
+  (first (filter
+          (fn[{:keys [tags]}]
+            (some (fn[{:keys [key value]}]
+                    (when (= key "id-tag")
+                      (= value id-tag)))
+                  tags))
+          coll)))
+
+(defn retrieve-resource [resource]
+  (get-resource
+   (:id-tag resource)
+   (retrieve-raw-all resource)))
+
+(defn has-value?
+  "Expects a collection of maps. Returns true if any map in the collection has a matching key/value pair."
+  [coll k v]
+  (when
+      (seq (filter (fn[m] (= (m k) v)) coll))
+    true))
+
+(defn exists? [resource]
+  "Given a resource returns true if has been created with the provider. The resource should implement the retrieve-raw method of Resource and should have an id-tag."
+  (when (retrieve-resource resource) true))
 
 (defn validate-all [& fns]
   (fn [resource]
@@ -55,8 +94,6 @@
     (throw+ {:operation :cf-all :msg "Please commit resources first."})))
 
 (def empty-diff? #(every? empty? (vals @diff-state)))
-
-(empty-diff?)
 
 (defn apply-diff []
   (when (empty-diff?) (throw+ {:operation :diff-all :msg "No diffs to apply. Please diff-all first."}))

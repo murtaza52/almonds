@@ -1,10 +1,12 @@
 # almonds
 
-A pallet project designed to ... well, that part is up to you.
+A library for developing with AWS resources -
+
+1) Ability to generate json in the cloud formation format.
+2) Ability to provide a diff of the resources.
 
 ## Usage
 
-FIXME
 
 ## License
 

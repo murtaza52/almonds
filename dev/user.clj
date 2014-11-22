@@ -8,7 +8,7 @@
 
 (defcredential (env :aws-access-key) (env :aws-secret) "https://ec2.amazonaws.com")
 
-
+(autotest :pause)
 
 
 ;; (r/commit groups/gp3)

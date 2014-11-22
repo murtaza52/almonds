@@ -7,19 +7,18 @@
             [amazonica.aws.ec2 :as aws-ec2]
             [clojure.set :as set :refer [difference]]))
 
-set/intersection
+(comment
 
-(def v  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc}))
+  ;; commit test
+  (def v  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc}))
 
-(def v2  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc2}))
+  (def v2  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc2}))
 
-(r/commit :central [v v2])
+  (r/commit :central [v v2]))
 
 
 
-(r/get-stack-resources :central :customer-gateway)
-
-(reset! r/commit-state {})
+(comment  (r/get-stack-resources :central :customer-gateway))
 
 (def retrieved-json {:state "available",
                      :type "ipsec.1",
@@ -46,14 +45,6 @@ set/intersection
                     {:id-tag :g2 :type cg/type-id :bgp-asn 6500 :ip-address "122.12.15.215"}
                     {:id-tag :g3 :type cg/type-id :bgp-asn 6500 :ip-address "122.12.16.216"}])
 
-;; to create
-;; to update
-;; to delete
-
-;; only in first - to delete
-;; only in second - to create
-;; in both - to update
-
 (def retrieved-rs1 [(cg/map->CustomerGateway {:id-tag :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
                    (cg/map->CustomerGateway {:id-tag :g5 :bgp-asn 6500 :ip-address "122.12.13.212"})])
 
@@ -62,8 +53,6 @@ set/intersection
 
 (r/diff-resources retrieved-rs1 commited-rs1)
 
-
-(set/intersection #{:a :b :c} #{:a :d})
 
 (comment
   (r/create (cg/map->CustomerGateway {:id :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})))
@@ -79,3 +68,30 @@ set/intersection
 
 (r/sanitize-resources :customer-gateway
                       (r/get-stack-resources :central :customer-gateway))
+
+(def rs [{:state "available",
+          :type "ipsec.1",
+          :customer-gateway-id "cgw-a58c6ecc",
+          :tags
+          [{:value "CentralVpcCustomerGatewayPrimary", :key "aws:cloudformation:logical-id"}
+           {:value "CentralVpcTwVpn", :key "aws:cloudformation:stack-name"}
+           {:value "Central VPC - Primary", :key "Name"}
+           {:value
+            "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
+            :key "aws:cloudformation:stack-id"}
+           {:value "central", :key "stack-tag"}
+           {:value "CentralVpcCustomerGatewayPrimary", :key "id-tag"}],
+          :bgp-asn "65000",
+          :ip-address "182.72.16.113"}])
+
+(r/sanitize-resources :customer-gateway rs)
+
+(r/diff-stack-resource :murtaza-sandbox :customer-gateway)
+
+
+
+@r/commit-state
+
+(comment
+  "diff test"
+  (r/commit :murtaza-sandbox my-resources))

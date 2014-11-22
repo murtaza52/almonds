@@ -4,6 +4,8 @@
 
 (def type-id :customer-gateway)
 
+(def response-id-ks [:customer-gateway :customer-gateway-id])
+
 (defrecord CustomerGateway [id-tag bgp-asn ip-address tags]
   Resource
   (retrieve-raw-all [this]
@@ -11,10 +13,14 @@
   (sanitize [this]
     (dissoc this :state :customer-gateway-id :type :tags))
   (create [this]
-    (let [m (aws-ec2/create-customer-gateway {:type "ipsec.1" :bgp-asn bgp-asn :public-ip ip-address})]
-      (r/create-tags (get-in m [:customer-gateway :customer-gateway-id]) tags)))
+    (let [request {:type "ipsec.1" :bgp-asn bgp-asn :public-ip ip-address}]
+      (let [response (aws-ec2/create-customer-gateway request)]
+        (r/add-tags (get-in response response-id-ks)
+                    (merge response {:tags tags})))))
   (aws-id [this]
-    (-> this get-resource))
+    (:customer-gateway-id (r/retrieve-resource)))
+  (delete [this]
+    (aws-ec2/delete-customer-gateway {:customer-gateway-id (r/aws-id this)}))
   (validate [this] true)
   (cf [this]
     (r/to-json {id-tag {:type "AWS::EC2::CustomerGateway"

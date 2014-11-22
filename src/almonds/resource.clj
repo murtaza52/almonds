@@ -9,7 +9,7 @@
 
 (defmulti resource-factory :type)
 (defmethod resource-factory :default [_]
-  (throw+ {:operation "Trying to create a new resourece using resourece factory"
+  (throw+ {:operation "Trying to create a new resource using resource factory"
            :msg "Either :type was not given or is an incorrect value."} ))
 
 (defprotocol Resource
@@ -44,29 +44,39 @@
   (route-propogation? [route-table virtual-private-gateway] "Returns true if the route propogationfor the virtual provate gateway for the route table is turned on."))
 
 (def commit-state (atom {}))
-(def diff-state (atom {:to-create [] :to-update [] :to-delete []}))
-(def problem-state (atom {:to-create [] :to-update [] :to-delete []}))
+(def diff-state (atom {:to-create [] :incosistent [] :to-delete []}))
+(def problem-state (atom {:to-create [] :incosistent [] :to-delete []}))
 (def cf-state-generated (atom {}))
 
-(defn to-tags [m]
+(defn reset-state []
+  (reset! commit-state {})
+  (reset! diff-state {:to-create [] :incosistent [] :to-delete []}))
+
+(defn to-tags [tags-m]
   (let [if-keyword #(if (keyword? %) (name %) %) ]
-    (mapv (fn [[k v]] {:key (if-keyword k) :value (if-keyword v)}) m)))
+    (mapv (fn [[k v]] {:key (if-keyword k) :value (if-keyword v)}) tags-m)))
 
 (defn name-to-id [name] (kebab/->kebab-case-string name))
 
 (defn id->name [id] (kebab/->Camel_Snake_Case_String id))
 
-(defn add-tags [stack {:keys [id-tag tags] :or {tags {}}}]
-  (to-tags (merge {:id-tag id-tag
-                   :stack-tag stack
-                   "Name" (id->name id-tag)}
-                  tags)))
+(defn almond-tags [stack {:keys [id-tag tags] :or {tags {}}}]
+  (merge {:id-tag id-tag
+          :stack-tag stack
+          "Name" (id->name id-tag)}
+         tags))
 
 (comment
-  (add-tags :central-stack {:id-tag :central-vpc :tags {"Name2" "hi"}}))
+  (to-tags {:hi "abc" "Name4" "qwe"})
+  (almond-tags :central-stack {:id-tag :central-vpc :tags {"Name2" "hi"}}))
 
 (defn create-tags [resource-id tags]
   (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
+
+(defn add-tags [resource-id m]
+  (->> (almond-tags m)
+       (to-tags)
+       (create-tags resource-id)))
 
 (defn has-tag? [k v]
   (fn[{:keys [tags]}]
@@ -105,23 +115,6 @@
        (map resource-factory)
        (map sanitize)))
 
-(def rs [{:state "available",
-          :type "ipsec.1",
-          :customer-gateway-id "cgw-a58c6ecc",
-          :tags
-          [{:value "CentralVpcCustomerGatewayPrimary", :key "aws:cloudformation:logical-id"}
-           {:value "CentralVpcTwVpn", :key "aws:cloudformation:stack-name"}
-           {:value "Central VPC - Primary", :key "Name"}
-           {:value
-            "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
-            :key "aws:cloudformation:stack-id"}
-           {:value "central", :key "stack-tag"}
-           {:value "CentralVpcCustomerGatewayPrimary", :key "id-tag"}],
-          :bgp-asn "65000",
-          :ip-address "182.72.16.113"}])
-
-(sanitize-resources :customer-gateway rs)
-
 (defn diff-resources [commited-rs retrieved-rs]
   (let [r (->> retrieved-rs
                (map :id-tag)
@@ -129,8 +122,8 @@
         c (->> commited-rs
                (map :id-tag)
                (into #{}))]
-    {:to-update (intersection r c)
-     :to-create (difference r c)
+    {:incosistent (intersection r c)
+     :to-create (difference c r)
      :to-delete (difference r c)}))
 
 (defn diff-stack-resource [stack-tag resource-type]
@@ -141,7 +134,7 @@
                             vals
                             (filter (fn [m] (= resource-type (:type m))))))))
 
-(diff-stack-resource :central :customer-gateway)
+
 
 ;; get all resources for a stack and the type
 
@@ -169,6 +162,8 @@
 (defn to-json [m]
   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
+(def resource-types [:customer-gateway])
+
 (defn commit [stack coll]
   (->> (map resource-factory coll)
        (map (fn [resource]
@@ -176,29 +171,43 @@
                 (swap! commit-state
                        #(update-in % [stack] merge {(:id-tag resource) resource})))))))
 
-(defn rm
-  "Deletes the AWS resources"
-  [stack coll]
-  true)
+(defn caculate-diff [stack-id]
+  (apply merge-with
+         concat
+         (map #(diff-stack-resource stack-id %) resource-types)))
 
-(comment (commit :c [{:type :customer-gateway :id-tag "b" :a 2}]))
+(let [stack-id :murtaza-sandbox op :to-create diff-result {:incosistent #{}, :to-create #{:g2 :g3 :g1}, :to-delete #{}}]
+  (reduce (fn[id-tag]
+            (-> (@commit-state stack-id)
+                op
+                id-tag))
+          (op diff-result)))
 
-(def resource-types [:customer-gateway])
+(defn populate-commit-state [])
 
 (defn diff-stack [stack-id]
-  (map #(diff-stack-resource stack-id %) resource-types))
-
-(diff-stack :central)
-
-(defn diff-all [stack]
   (if (seq @commit-state)
-    (do
-      (reset! diff-state
-              (apply merge-with
-                     concat
-                     (map diff (vals @commit-state))))
-      (pprint @diff-state))
-    (throw+ {:operation :diff-all :msg "Please commit resources first."})))
+    (reset! diff-state
+            (calculate-diff stack-id))
+    (throw+ {:operation :diff-stack :msg "Please commit resources first."})))
+
+(comment  (diff-stack :murtaza-sandbox))
+
+(def empty-diff? #(every? empty? (vals @diff-state)))
+
+(defn create-resources []
+  (map create (:to-create @diff-state)))
+
+(defn delete-resources []
+  (map delete (:to-delete @diff-state)))
+
+(defn apply-diff []
+  (when (empty-diff?) (throw+ {:operation :apply-diff :msg "No diffs to apply. Please diff-stack first."}))
+  (create-resources)
+  (delete-resources)
+  (reset! diff-state nil))
+
+(comment (commit :c [{:type :customer-gateway :id-tag "b" :a 2}]))
 
 (defn cf-all []
   (if (seq @commit-state)
@@ -207,28 +216,20 @@
               (map cf (vals @commit-state))))
     (throw+ {:operation :cf-all :msg "Please commit resources first."})))
 
-(def empty-diff? #(every? empty? (vals @diff-state)))
-
-(defn apply-diff []
-  (when (empty-diff?) (throw+ {:operation :diff-all :msg "No diffs to apply. Please diff-all first."}))
-  (reset! problem-state {:to-create [] :to-update [] :to-delete []})
-  (let [{:keys [to-create to-update to-delete]} @diff-state]
-    (doseq [r to-create]
-      (create r))
-    (doseq [r to-update]
-      (if (update? r)
-        (update r)
-        (swap! problem-state (fn[old-state] (update-in old-state :to-create conj)))))
-    (doseq [r to-delete]
-      (if (delete? r)
-        (delete r)
-        (swap! problem-state (fn[old-state] (update-in old-state :to-delete conj))))))
-  (reset! diff-state nil))
 
 
-(def retrieved-resources (atom {}))
-
-;; retrieve all resources
-;; group the resources by type - local and retrieved
-;; another atom for diffs - {:to-create [] :to-delete [] :to-update []}
-;; compare the resources based on identity, if found and not equal then to-update,
+;; (defn apply-diff []
+;;   (when (empty-diff?) (throw+ {:operation :diff-all :msg "No diffs to apply. Please diff-all first."}))
+;;   (reset! problem-state {:to-create [] :incosistent [] :to-delete []})
+;;   (let [{:keys [to-create to-update to-delete]} @diff-state]
+;;     (doseq [r to-create]
+;;       (create r))
+;;     (doseq [r to-update]
+;;       (if (update? r)
+;;         (update r)
+;;         (swap! problem-state (fn[old-state] (update-in old-state :to-create conj)))))
+;;     (doseq [r to-delete]
+;;       (if (delete? r)
+;;         (delete r)
+;;         (swap! problem-state (fn[old-state] (update-in old-state :to-delete conj))))))
+;;   (reset! diff-state nil))

@@ -6,7 +6,7 @@
             [plumbing.core :refer [defnk]]
             [schema.core :as s]
             [clojure.set :refer [difference]]
-            [almonds.resource :as r :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit retrieve-raw-all exists? get-resource]]))
+            [almonds.resource :as r :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff commit retrieve-raw-all exists? get-resource]]))
 
 (defrecord VPC [id-tag]
   Resource
@@ -14,9 +14,7 @@
     (:vpcs (aws-ec2/describe-vpcs)))
   (tf-id [this]
     (str "${aws_vpc." id-tag ".id}"))
-  (validate [this] true)
-  (diff [this]
-    ))
+  (validate [this] true))
 
 (comment
   (def central (->VPC "central-vpc"))

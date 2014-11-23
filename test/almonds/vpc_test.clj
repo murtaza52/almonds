@@ -17,7 +17,7 @@
 (r/retrieve-raw-all (vpc/map->VPC {}))
 
 ;; lets get all resources for a certain type for the stack.
-;; add stack-tag also
+;; add stack-id also
 ;; do a diff between them
 
 ;;(reset! r/commit-state {})

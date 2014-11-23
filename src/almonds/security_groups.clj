@@ -8,7 +8,7 @@
             [schema.core :as s]
             [almonds.security-rules :as rules]
             [clojure.set :refer [difference]]
-            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff diff-all commit apply-diff to-json cf]]))
+            [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff commit apply-diff to-json cf]]))
 
 (defn swap-key [m key-to-replace key]
   (-> m

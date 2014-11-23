@@ -6,7 +6,7 @@
 
 (def response-id-ks [:customer-gateway :customer-gateway-id])
 
-(defrecord CustomerGateway [id-tag bgp-asn ip-address tags]
+(defrecord CustomerGateway [id-tag stack-id bgp-asn ip-address]
   Resource
   (retrieve-raw-all [this]
     (:customer-gateways (aws-ec2/describe-customer-gateways)))
@@ -16,7 +16,7 @@
     (let [request {:type "ipsec.1" :bgp-asn bgp-asn :public-ip ip-address}]
       (let [response (aws-ec2/create-customer-gateway request)]
         (r/add-tags (get-in response response-id-ks)
-                    (merge response {:tags tags})))))
+                    (merge this {:tags []})))))
   (aws-id [this]
     (:customer-gateway-id (r/retrieve-resource)))
   (delete [this]

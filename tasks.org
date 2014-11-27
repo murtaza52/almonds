@@ -1,0 +1,18 @@
+* High level Architecture
+
+** Functionalities
+   + stage resources
+   + unstage resources
+   + pull chamges
+   + reset - unstage all, reset pull state
+   + diff - show diff - create, delete, inconsistent
+   + apply-diff :all :create :delete- calculate the diff and apply it
+   + the tags should be generic - I should be able to see resources by type, stack id, or my custom tag.
+
+
+*** todo
+    + create atomic functions
+      - stage - in place of commit
+      - unstage - remove everything from staging
+      - reset - unstage and also empty the pull state
+    + replace stack-id with tags. allow a collection of tags to be specified.

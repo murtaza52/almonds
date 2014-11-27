@@ -5,32 +5,41 @@
             [camel-snake-kebab.core :as kebab :refer [->CamelCase]]
             [clojure.data.json :refer [write-str]]
             [amazonica.aws.ec2 :as aws-ec2]
-            [clojure.set :refer [difference intersection]]))
+            [clojure.set :refer [difference intersection]]
+            [clojure.data :as data]))
 
-(defmulti resource-factory :type)
-(defmethod resource-factory :default [_]
-  (throw+ {:operation "Trying to create a new resource using resource factory"
-           :msg "Either :type was not given or is an incorrect value."} ))
+;; (defmulti resource-factory :type)
+;; (defmethod resource-factory :default [_]
+;;   (throw+ {:operation "Trying to create a new resource using resource factory"
+;;            :msg "Either :type was not given or is an incorrect value."} ))
 
-(defprotocol Resource
-  "Defines the various operations that can be performed on a resource"
-  (create [resource] "Create the resource")
-  (retrieve [resource] "Returns a record based on the data returned by the provider.")
-  (sanitize [resource] "Returns the sanitized json")
-  (delete [resource] "Delete the resource")
-  (update [resource] "Updates the resource")
-  (id [resource] "Uniquely identifies a resource")
-  (delete? [resource] "Determines if is safe to delete the resource")
-  (update? [resource] "Can the resource be updated")
-  (validate [resource] "Validates the resource definition")
-  (dependents [resource] "Returns a list of child resources")
-  (retrieve-raw [resource] "Returns the raw data retrieved for the resource from the provider.")
-  (diff [resource] "Returns a vector of vectors of resources for [create update delete]")
-  (cf [resource] "Returns the json represntation for cf")
-  (tf [resource] "Returns the json representation for tf")
-  (tf-id [resource] "eturns the ")
-  (retrieve-raw-all [resource] "Returns all resources for the type.")
-  (aws-id [resource] "ID assigned by AWS"))
+(defmulti create :almonds-type)
+(defmulti sanitize :almonds-type)
+(defmulti retrieve-raw-all :almonds-type)
+(defmulti validate :almonds-type)
+(defmulti aws-id :almonds-type)
+(defmulti delete :almonds-type)
+
+
+;; (defprotocol Resource
+;;   "Defines the various operations that can be performed on a resource"
+;;   (create [resource] "Create the resource")
+;;   (retrieve [resource] "Returns a record based on the data returned by the provider.")
+;;   (sanitize [resource] "Returns the sanitized json")
+;;   (delete [resource] "Delete the resource")
+;;   (update [resource] "Updates the resource")
+;;   (id [resource] "Uniquely identifies a resource")
+;;   (delete? [resource] "Determines if is safe to delete the resource")
+;;   (update? [resource] "Can the resource be updated")
+;;   (validate [resource] "Validates the resource definition")
+;;   (dependents [resource] "Returns a list of child resources")
+;;   (retrieve-raw [resource] "Returns the raw data retrieved for the resource from the provider.")
+;;   (diff [resource] "Returns a vector of vectors of resources for [create update delete]")
+;;   (cf [resource] "Returns the json represntation for cf")
+;;   (tf [resource] "Returns the json representation for tf")
+;;   (tf-id [resource] "eturns the ")
+;;   (retrieve-raw-all [resource] "Returns all resources for the type.")
+;;   (aws-id [resource] "ID assigned by AWS"))
 
 (defprotocol VpnConnection
   (is-up? [resource] "Returns true if the VPN Connection is up")
@@ -47,11 +56,13 @@
 (def diff-state (atom {:to-create [] :inconsistent [] :to-delete []}))
 (def problem-state (atom {:to-create [] :inconsistent [] :to-delete []}))
 (def cf-state-generated (atom {}))
+(def retrieved-state (atom {}))
 
-(defn print-me [f & args]
-  (let [return (apply f args)]
-    (println return)
-    return))
+(def resource-types [:customer-gateway])
+
+(defn print-me [v]
+  (println v)
+  v)
 
 (defn reset-state []
   (reset! commit-state {})
@@ -113,46 +124,49 @@
   (first (filter (has-tag? "id-tag" id-tag) coll)))
 
 (defn get-stack-resources [stack-id resource-type]
-  (->> (resource-factory {:type resource-type})
+  (->> {:almonds-type resource-type}
        (retrieve-raw-all)
        (filter (has-tag? "stack-id" (name stack-id)))))
 
 (defn sanitize-resources [resource-type coll]
   (->> coll
        (map add-almond-ids-from-tags)
-       (map (fn[m] (merge m {:type resource-type})))
-       (map resource-factory)
-       (map sanitize)
-       (map (fn[m] (merge m {:type resource-type})))
-       (map resource-factory)))
+       (map (fn[m] (merge m {:almonds-type resource-type})))
+       (map sanitize)))
 
 (defn diff-resources [commited-rs retrieved-rs]
-  (println commited-rs)
-  (println retrieved-rs)
-  (let [only-r (->> (difference (into #{} retrieved-rs)
-                                (into #{} commited-rs))
-                    (map :id-tag)
-                    (into #{}))
-        only-c (->> (difference (into #{} commited-rs)
-                                (into #{} retrieved-rs))
-                    (map :id-tag)
-                    (into #{}))]
-    {:inconsistent (intersection only-r only-c)
-     :to-create (difference only-c only-r)
-     :to-delete (difference only-r only-c)}))
+  (let [d (->> (data/diff (into #{} commited-rs)
+                         (into #{} retrieved-rs))
+              butlast
+              (map (fn[coll] (map :id-tag coll)))
+              (map #(into #{} %))
+              (zipmap [:to-create :to-delete]))]
+    (merge d {:incosistent (last (data/diff (:to-delete d)
+                                            (:to-create d)))})))
+
+(comment (diff-resources (seq [{:id-tag :g1 :a 1} {:id-tag :g2 :a 2} {:id-tag :g3 :a 2}])
+                         (seq [{:id-tag :g2 :a 2} {:id-tag :g1 :a 2} {:id-tag :g4 :a 2}])))
 
 (defn diff-stack-resource [stack-id resource-type]
-  (->> (get-stack-resources stack-id resource-type)
+  (->> (stack-id @retrieved-state)
        (sanitize-resources resource-type)
        (diff-resources (->> @commit-state
                             stack-id
                             vals
-                            (filter (fn [m] (= resource-type (:type m))))))))
+                            (filter (fn [m] (= resource-type (:almonds-type m))))))))
 
-(defn retrieve-resource [resource]
+(defn retrieve-resource [m]
   (get-resource
-   (:id-tag resource)
-   (retrieve-raw-all resource)))
+   (:id-tag m)
+   (retrieve-raw-all m)))
+
+(defn pull [stack-id]
+  (swap! retrieved-state
+         merge
+         {stack-id (mapcat #(get-stack-resources stack-id %) resource-types)}))
+
+(defn show-aws-state [stack-id]
+  (stack-id @retrieved-state))
 
 (defn has-value?
   "Expects a collection of maps. Returns true if any map in the collection has a matching key/value pair."
@@ -172,12 +186,9 @@
 (defn to-json [m]
   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
-(def resource-types [:customer-gateway])
-
 (defn commit [stack-id coll]
   (->> coll
        (map (fn[m] (merge m {:stack-id stack-id})))
-       (map resource-factory)
        (map (fn [resource]
               (when (validate resource)
                 (swap! commit-state
@@ -188,7 +199,7 @@
          concat
          (map #(diff-stack-resource stack-id %) resource-types)))
 
-(defn create-diff-state [stack-id diff-result]
+(defn populate-diff-state [stack-id diff-result]
   (zipmap [:to-create :inconsistent :to-delete]
           (map (fn[op]
                  (reduce
@@ -200,14 +211,14 @@
                   (op diff-result)))
                [:to-create :inconsistent :to-delete])))
 
-(comment (create-diff-state :murtaza-sandbox
-                            {:inconsistent #{}, :to-create #{:g2 :g3 :g1}, :to-delete #{}}))
+(comment (populate-diff-state :murtaza-sandbox
+                              {:inconsistent #{}, :to-create #{:g2 :g3 :g1}, :to-delete #{}}))
 
 (defn diff-stack [stack-id]
   (if (seq @commit-state)
     (reset! diff-state
-            (create-diff-state stack-id
-                               (calculate-diff stack-id)))
+            (populate-diff-state stack-id
+                                 (calculate-diff stack-id)))
     (throw+ {:operation :diff-stack :msg "Please commit resources first."})))
 
 (comment  (diff-stack :murtaza-sandbox))
@@ -230,14 +241,14 @@
   (delete-resources)
   (reset! diff-state {:to-create [] :inconsistent [] :to-delete []}))
 
-(comment (commit :c [{:type :customer-gateway :id-tag "b" :a 2}]))
+(comment (commit :c [{:almonds-type :customer-gateway :id-tag "b" :a 2}]))
 
-(defn cf-all []
-  (if (seq @commit-state)
-    (do
-      (reset! cf-state-generated
-              (map cf (vals @commit-state))))
-    (throw+ {:operation :cf-all :msg "Please commit resources first."})))
+;; (defn cf-all []
+;;   (if (seq @commit-state)
+;;     (do
+;;       (reset! cf-state-generated
+;;               (map cf (vals @commit-state))))
+;;     (throw+ {:operation :cf-all :msg "Please commit resources first."})))
 
 
 

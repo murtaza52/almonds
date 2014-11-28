@@ -2,7 +2,7 @@
 ;;   (:require [amazonica.aws.ec2 :as aws-ec2]
 ;;             [almonds.resource :as r :refer [Resource is-up? retrieve-raw-all retrieve-resource]]))
 
-;; (defrecord VpnConnection [id-tag]
+;; (defrecord VpnConnection [almonds-id]
 ;;   Resource
 ;;   (retrieve-raw-all [this]
 ;;     (:vpn-connections (aws-ec2/describe-vpn-connections)))

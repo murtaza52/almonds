@@ -7,12 +7,12 @@
 
 ;; (comment
 
-;;   ;; commit test
-;;   (def v  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc}))
+;;   ;; stage test
+;;   (def v  (vpc/map->VPC {:type :customer-gateway :almonds-id :my-vpc}))
 
-;;   (def v2  (vpc/map->VPC {:type :customer-gateway :id-tag :my-vpc2}))
+;;   (def v2  (vpc/map->VPC {:type :customer-gateway :almonds-id :my-vpc2}))
 
-;;   (r/commit :central [v v2]))
+;;   (r/stage :central [v v2]))
 
 (comment  (r/get-stack-resources :central :customer-gateway))
 
@@ -20,7 +20,7 @@
                      :type "ipsec.1",
                      :customer-gateway-id "cgw-a48c6ecd",
                      :tags
-                     [{:value "CentralVpcCustomerGatewayBackup", :key "id-tag"}
+                     [{:value "CentralVpcCustomerGatewayBackup", :key "almonds-id"}
                       {:value "Central VPC - Backup", :key "Name"}
                       {:value "CentralVpcTwVpn", :key "aws:cloudformation:stack-name"}
                       {:value
@@ -37,16 +37,16 @@
   [{:almonds-type :customer-gateway :bgp-asn 6500 :ip-address ip-address}
    {:almonds-type :instance}])
 
-(def my-resources  [{:id-tag :g4 :almonds-type cg/type-id :bgp-asn "6500" :ip-address "122.12.14.214"}
-                    {:id-tag :g2 :almonds-type cg/type-id :bgp-asn "6500" :ip-address "122.12.15.215"}
-                    {:id-tag :g3 :almonds-type cg/type-id :bgp-asn "6500" :ip-address "122.12.16.216"}])
+(def my-resources  [{:almonds-id :g4 :almonds-type cg/type-id :almonds-tags [:sandbox-stack :web-tier :sync-box] :bgp-asn 6500 :ip-address "122.12.14.214"}
+                    {:almonds-id :g2 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.15.215" :almonds-tags [:sandbox-stack :app-tier :sync-box]}
+                    {:almonds-id :g3 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.16.216" :almonds-tags [:sandbox-stack :app-tier :utility-box]}])
 
 ;; (comment
-;;   (def retrieved-rs1 [(cg/map->CustomerGateway {:id-tag :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
-;;                       (cg/map->CustomerGateway {:id-tag :g5 :bgp-asn 6500 :ip-address "122.12.13.212"})])
+;;   (def retrieved-rs1 [(cg/map->CustomerGateway {:almonds-id :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
+;;                       (cg/map->CustomerGateway {:almonds-id :g5 :bgp-asn 6500 :ip-address "122.12.13.212"})])
 
-;;   (def commited-rs1 [(cg/map->CustomerGateway {:id-tag :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
-;;                      (cg/map->CustomerGateway {:id-tag :g7 :bgp-asn 6500 :ip-address "122.12.13.110"})])
+;;   (def stageed-rs1 [(cg/map->CustomerGateway {:almonds-id :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
+;;                      (cg/map->CustomerGateway {:almonds-id :g7 :bgp-asn 6500 :ip-address "122.12.13.110"})])
 
 ;;   (r/diff-resources retrieved-rs1 commited-rs1))
 
@@ -58,7 +58,7 @@
 
 ;;(aws-ec2/create-customer-gateway {:type "ipsec.1" :bgp-asn 65000 :public-ip "122.12.13.113"})
 
-                                        ; (r/add-tags "cgw-a48c6ecd" [{:key "id-tag" :value "my-id"} {:key "stack-id" :value "my-stack"}])
+                                        ; (r/add-tags "cgw-a48c6ecd" [{:key "almonds-id" :value "my-id"} {:key "stack-id" :value "my-stack"}])
 
 ;; (r/retrieve-raw-all (vpc/map->VPC {}))
 
@@ -77,7 +77,7 @@
             "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
             :key "aws:cloudformation:stack-id"}
            {:value "central", :key "stack-id"}
-           {:value "CentralVpcCustomerGatewayPrimary", :key "id-tag"}],
+           {:value "CentralVpcCustomerGatewayPrimary", :key "almonds-id"}],
           :bgp-asn "65000",
           :ip-address "182.72.16.113"}])
 
@@ -86,18 +86,13 @@
 
   (r/diff-stack-resource :murtaza-sandbox :customer-gateway))
 
-@r/commit-state
-@r/diff-state
-
-(clojure.data/diff #{{:a 2}
-                     {:a 3}}
-                   #{{:a 2}
-                     {:b 2}})
-
 (comment
-  "diff test"
-  (r/commit :murtaza-sandbox my-resources)
+  (reset :all) ;; :pull :staging :diff
+  (r/unstage)
+  (r/stage :murtaza-sandbox my-resources)
   (r/diff-stack :murtaza-sandbox)
-  (r/apply-diff)
+  (r/push :with-pull false)
   (r/pull :murtaza-sandbox)
-  (r/show-aws-state :murtaza-sandbox))
+  (r/show-pull-state :murtaza-sandbox))
+
+(read-string "6500")

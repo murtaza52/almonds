@@ -8,7 +8,7 @@
 ;;             [schema.core :as s]
 ;;             [almonds.security-rules :as rules]
 ;;             [clojure.set :refer [difference]]
-;;             [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff commit apply-diff to-json cf]]))
+;;             [almonds.resource :refer [Resource id retrieve retrieve-raw create delete validate update dependents diff stage apply-diff to-json cf]]))
 
 ;; (defn swap-key [m key-to-replace key]
 ;;   (-> m
@@ -86,7 +86,7 @@
 
 ;; (cf gp3)
 
-;; ;;(commit gp3)
+;; ;;(stage gp3)
 
 ;; (comment
 ;;   (retrieve gp3)
@@ -97,7 +97,7 @@
 
 ;;   (delete gp3)
 
-;;   (commit gp3)
+;;   (stage gp3)
 
 ;;   (diff gp3)
 

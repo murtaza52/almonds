@@ -11,14 +11,14 @@
 (autotest :pause)
 
 
-;; (r/commit groups/gp3)
-;; (commit pdp-in1)
+;; (r/stage groups/gp3)
+;; (stage pdp-in1)
 
 
 
 ;; (r/cf-all)
 
-;; (commit groups/gp3)
+;; (stage groups/gp3)
 
 ;; (diff-all)
 ;; (refresh)

@@ -5,14 +5,14 @@
 
 
 
-(def my-resources  [{:id-tag :g1 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.14.214"}
-                    {:id-tag :g2 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.15.215"}
-                    {:id-tag :g3 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.16.216"}])
+(def my-resources  [{:almonds-id :g1 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.14.214"}
+                    {:almonds-id :g2 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.15.215"}
+                    {:almonds-id :g3 :almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.16.216"}])
 
 (comment
   (r/reset-state)
-  (r/commit :murtaza-sandbox my-resources)
+  (r/stage :murtaza-sandbox my-resources)
   (r/diff-stack :murtaza-sandbox)
-  (r/apply-diff)
+  (r/push)
 
-  @r/commit-state)
+  @r/stage-state)

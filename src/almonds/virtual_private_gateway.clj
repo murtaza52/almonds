@@ -2,7 +2,7 @@
 ;;   (:require [amazonica.aws.ec2 :as aws-ec2]
 ;;             [almonds.resource :as r :refer [Resource retrieve-resource retrieve-raw-all retrieve-raw exists?]]))
 
-;; (defrecord VirtualPrivateGateway [id-tag]
+;; (defrecord VirtualPrivateGateway [almonds-id]
 ;;   Resource
 ;;   (retrieve-raw-all [this]
 ;;     (:vpn-gateways (aws-ec2/describe-vpn-gateways)))

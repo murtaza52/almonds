@@ -64,9 +64,15 @@
   (println v)
   v)
 
-(defn reset-state []
-  (reset! commit-state {})
-  (reset! diff-state {:to-create [] :inconsistent [] :to-delete []}))
+(defn clear-all []
+  (map #(reset! % {}) [commit-state diff-state retrieved-state])
+  nil)
+
+(defn unstage [& args]
+  (reset! commit-state {}))
+
+(defn clear-pull-state []
+  (reset! retrieved-state {}))
 
 (defn to-tags [tags-m]
   (let [if-keyword #(if (keyword? %) (name %) %) ]
@@ -74,17 +80,17 @@
 
 (defn name-to-id [name] (kebab/->kebab-case-string name))
 
-(defn id->name [id] (kebab/->Camel_Snake_Case_String (print-me identity id)))
+(defn id->name [id] (kebab/->Camel_Snake_Case_String id))
 
-(defn almond-tags [{:keys [id-tag stack-id tags] :or {tags {}}}]
-  (merge {:id-tag id-tag
+(defn almond-tags [{:keys [almonds-id stack-id tags] :or {tags {}}}]
+  (merge {:almonds-id almonds-id
           :stack-id stack-id
-          "Name" (id->name id-tag)}
+          "Name" (id->name almonds-id)}
          tags))
 
 (comment
   (to-tags {:hi "abc" "Name4" "qwe"})
-  (almond-tags {:stack-id :central-stack :id-tag :central-vpc :tags {"Name2" "hi"}})
+  (almond-tags {:stack-id :central-stack :almonds-id :central-vpc :tags {"Name2" "hi"}})
   (id->name :g3))
 
 (defn create-tags [resource-id tags]
@@ -110,18 +116,18 @@
       :value
       keyword))
 
-(get-tag "id-tag" [{:key "id-tag" :value "hello"}])
+(get-tag "almonds-id" [{:key "almonds-id" :value "hello"}])
 
 (defn add-almond-ids-from-tags [m]
-  (let [id-tag (get-tag "id-tag" (:tags m))
+  (let [almonds-id (get-tag "almonds-id" (:tags m))
         stack-id (get-tag "stack-id" (:tags m)) ]
-    (merge m {:id-tag id-tag :stack-id stack-id})))
+    (merge m {:almonds-id almonds-id :stack-id stack-id})))
 
-(add-almond-ids-from-tags {:tags [{:key "id-tag" :value "hello"}
+(add-almond-ids-from-tags {:tags [{:key "almonds-id" :value "hello"}
                                   {:key "stack-id" :value "dev-stack"}]})
 
-(defn get-resource [id-tag coll]
-  (first (filter (has-tag? "id-tag" id-tag) coll)))
+(defn get-resource [almonds-id coll]
+  (first (filter (has-tag? "almonds-id" almonds-id) coll)))
 
 (defn get-stack-resources [stack-id resource-type]
   (->> {:almonds-type resource-type}
@@ -134,18 +140,18 @@
        (map (fn[m] (merge m {:almonds-type resource-type})))
        (map sanitize)))
 
-(defn diff-resources [commited-rs retrieved-rs]
-  (let [d (->> (data/diff (into #{} commited-rs)
+(defn diff-resources [stageed-rs retrieved-rs]
+  (let [d (->> (data/diff (into #{} stageed-rs)
                          (into #{} retrieved-rs))
               butlast
-              (map (fn[coll] (map :id-tag coll)))
+              (map (fn[coll] (map :almonds-id coll)))
               (map #(into #{} %))
               (zipmap [:to-create :to-delete]))]
     (merge d {:incosistent (last (data/diff (:to-delete d)
                                             (:to-create d)))})))
 
-(comment (diff-resources (seq [{:id-tag :g1 :a 1} {:id-tag :g2 :a 2} {:id-tag :g3 :a 2}])
-                         (seq [{:id-tag :g2 :a 2} {:id-tag :g1 :a 2} {:id-tag :g4 :a 2}])))
+(comment (diff-resources (seq [{:almonds-id :g1 :a 1} {:almonds-id :g2 :a 2} {:almonds-id :g3 :a 2}])
+                         (seq [{:almonds-id :g2 :a 2} {:almonds-id :g1 :a 2} {:almonds-id :g4 :a 2}])))
 
 (defn diff-stack-resource [stack-id resource-type]
   (->> (stack-id @retrieved-state)
@@ -155,9 +161,13 @@
                             vals
                             (filter (fn [m] (= resource-type (:almonds-type m))))))))
 
+(diff-stack-resource :murtaza-sandbox :customer-gateway)
+
+(sanitize-resources :customer-gateway (:murtaza-sandbox @retrieved-state))
+
 (defn retrieve-resource [m]
   (get-resource
-   (:id-tag m)
+   (:almonds-id m)
    (retrieve-raw-all m)))
 
 (defn pull [stack-id]
@@ -165,7 +175,7 @@
          merge
          {stack-id (mapcat #(get-stack-resources stack-id %) resource-types)}))
 
-(defn show-aws-state [stack-id]
+(defn show-pull-state [stack-id]
   (stack-id @retrieved-state))
 
 (defn has-value?
@@ -186,13 +196,13 @@
 (defn to-json [m]
   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
-(defn commit [stack-id coll]
+(defn stage [stack-id coll]
   (->> coll
        (map (fn[m] (merge m {:stack-id stack-id})))
        (map (fn [resource]
               (when (validate resource)
                 (swap! commit-state
-                       #(update-in % [stack-id] merge {(:id-tag resource) resource})))))))
+                       #(update-in % [stack-id] merge {(:almonds-id resource) resource})))))))
 
 (defn calculate-diff [stack-id]
   (apply merge-with
@@ -200,12 +210,12 @@
          (map #(diff-stack-resource stack-id %) resource-types)))
 
 (defn populate-diff-state [stack-id diff-result]
-  (zipmap [:to-create :inconsistent :to-delete]
+  (let [diffed (map sanitize-resources)])(zipmap [:to-create :inconsistent :to-delete]
           (map (fn[op]
                  (reduce
-                  (fn[coll id-tag]
+                  (fn[coll almonds-id]
                     (-> (@commit-state stack-id)
-                        id-tag
+                        almonds-id
                         (cons coll)))
                   []
                   (op diff-result)))
@@ -215,11 +225,9 @@
                               {:inconsistent #{}, :to-create #{:g2 :g3 :g1}, :to-delete #{}}))
 
 (defn diff-stack [stack-id]
-  (if (seq @commit-state)
-    (reset! diff-state
-            (populate-diff-state stack-id
-                                 (calculate-diff stack-id)))
-    (throw+ {:operation :diff-stack :msg "Please commit resources first."})))
+  (reset! diff-state
+          (populate-diff-state stack-id
+                               (calculate-diff stack-id))))
 
 (comment  (diff-stack :murtaza-sandbox))
 
@@ -235,13 +243,14 @@
   (doseq [r (:to-delete @diff-state)]
     (delete r)))
 
-(defn apply-diff []
-  (when (empty-diff?) (throw+ {:operation :apply-diff :msg "No diffs to apply. Please diff-stack first."}))
+(defn push [& {:keys [with-pull] :or {with-pull true}}]
+  (when (empty-diff?) (throw+ {:operation :push :msg "No diffs to apply. Please diff-stack first."}))
   (create-resources)
   (delete-resources)
-  (reset! diff-state {:to-create [] :inconsistent [] :to-delete []}))
+  (reset! diff-state {:to-create [] :inconsistent [] :to-delete []})
+  (when with-pull (pull :a)))
 
-(comment (commit :c [{:almonds-type :customer-gateway :id-tag "b" :a 2}]))
+(comment (stage :c [{:almonds-type :customer-gateway :almonds-id "b" :a 2}]))
 
 ;; (defn cf-all []
 ;;   (if (seq @commit-state)

@@ -25,6 +25,7 @@
        (->> m#
            :almonds-tags
            (apply pushed-resources-raw)
+           first
            ~aws-id-key))
      (defmethod delete ~resource-type [m#]
        (~delete-fn {~aws-id-key (aws-id m#)}))))

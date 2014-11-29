@@ -106,14 +106,12 @@
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
   (r/stage my-resources)
-  (r/diff :murtaza-sandbox)
-  (r/push)
+  (r/diff)
+  (r/push 1)
   (r/pull)
-  (r/pushed-resources-raw)
+  (r/pushed-resources-raw 1)
   (r/sanitize-resources)
   (r/create (first my-resources))
   (r/delete (first my-resources)))
 
-
-
-(read-string "6500")
+;; (r/aws-id (r/pushed-resources 1))

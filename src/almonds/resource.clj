@@ -35,7 +35,6 @@
 (defn uuid [] (java.util.UUID/randomUUID))
 
 (def index (atom {}))
-(def diff-state (atom {:to-create [] :inconsistent [] :to-delete []}))
 (def pushed-state (atom {}))
 
 (def resource-types [:customer-gateway])
@@ -52,7 +51,7 @@
   v)
 
 (defn clear-all []
-  (map #(reset! % {}) [index diff-state pushed-state])
+  (map #(reset! % {}) [index pushed-state])
   nil)
 
 (defn unstage [& args]
@@ -113,6 +112,9 @@
               true))
           tags)))
 
+((has-tag-key? ":almonds-tags") {:a 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
+                           {:key ":almonds-type" :value "dev-stack"}]})
+
 (defn get-tag [k coll]
   (-> (filter (fn [{:keys [key]}]
                 (= key k))
@@ -135,7 +137,9 @@
        (retrieve-all)
        (filter (has-tag-key? ":almonds-tags"))
        (filter (has-tag-key? ":almonds-type"))
-       ->almond-map))
+       (map ->almond-map)))
+
+(get-pushed-resource :customer-gateway)
 
 (defn pull []
   (->> (mapcat #(get-pushed-resource %) resource-types)
@@ -147,12 +151,17 @@
 
 (contains-set? #{:a :b :c} #{})
 
-(defn pushed-resources-raw [& args]
-  (when-not (seq @pushed-state) (pull))
+(defn filter-resources [coll & args]
   (filter (fn [{:keys [almonds-tags]}]
             (contains-set? (into #{} almonds-tags)
                            (into #{} args)))
-          @pushed-state))
+          coll))
+
+(filter-resources @pushed-state)
+
+(defn pushed-resources-raw [& args]
+  (when-not (seq @pushed-state) (pull))
+  (apply filter-resources @pushed-state args))
 
 (defn pushed-resources [& args]
   (->> (apply pushed-resources-raw args)
@@ -162,6 +171,17 @@
   (->> (apply pushed-resources-raw args)
        (map (fn [{:keys [almonds-tags almonds-type]}]
               {:almonds-tags almonds-tags :almonds-type almonds-type}))))
+
+(defn staged-resources [& args]
+  (when (seq @index)
+    (apply filter-resources (vals @index) args)))
+
+(defn staged-resources-ids [& args]
+  (->> (apply staged-resources args)
+       (map (fn [{:keys [almonds-tags almonds-type]}]
+              {:almonds-tags almonds-tags :almonds-type almonds-type}))))
+
+(staged-resources)
 
 (comment  (pushed-resources-raw 1)
 
@@ -183,30 +203,28 @@
 ;;                   {:value ":customer-gateway", :key ":almonds-type"}
 ;;                   {:value "[:sandbox-stack :web-tier :sync-box]", :key ":almonds-tags"}]})
 
-(defn diff-resources [stageed-rs retrieved-rs]
-  (let [d (->> (data/diff (into #{} stageed-rs)
-                          (into #{} retrieved-rs))
+(defn diff-resources [staged pushed]
+  (let [d (->> (data/diff (into #{} staged)
+                          (into #{} pushed))
                butlast
                (map (fn[coll] (map :almonds-tags coll)))
                (map #(into #{} %))
                (zipmap [:to-create :to-delete]))]
-    (merge d {:incosistent (last (data/diff (:to-delete d)
-                                            (:to-create d)))})))
+    (merge d {:inconsistent (last (data/diff (:to-delete d)
+                                             (:to-create d)))})))
 
-(comment (diff-resources (seq [{:almonds-tags :g1 :a 1} {:almonds-tags :g2 :a 2} {:almonds-tags :g3 :a 2}])
-                         (seq [{:almonds-tags :g2 :a 2} {:almonds-tags :g1 :a 2} {:almonds-tags :g4 :a 2}])))
+(comment (diff-resources (seq [{:almonds-tags [:g1] :a 1} {:almonds-tags [:g2] :a 2} {:almonds-tags [:g3] :a 2}])
+                         (seq [{:almonds-tags [:g2] :a 2} {:almonds-tags [:g1] :a 2} {:almonds-tags [:g4] :a 2}])))
 
 (defn sanitize-resources []
   (->> @pushed-state
        (map ->almond-map)
        (map sanitize)))
 
-(defn diff-stack-resource [stack-id resource-type]
-  (->> (sanitize-resources)
+(defn diff-stack-resource [& args]
+  (->> (apply pushed-resources args)
        (diff-resources (->> @index
-                            stack-id
-                            vals
-                            (filter (fn [m] (= resource-type (:almonds-type m))))))))
+                            vals))))
 
 ;;(diff-stack-resource :murtaza-sandbox :customer-gateway)
 
@@ -245,44 +263,41 @@
          (map #(diff-stack-resource stack-id %) resource-types)))
 
 (defn populate-diff-state [stack-id diff-result]
-  (let [diffed (map sanitize-resources)])(zipmap [:to-create :inconsistent :to-delete]
-                                                 (map (fn[op]
-                                                        (reduce
-                                                         (fn[coll almonds-tags]
-                                                           (-> (@index stack-id)
-                                                               almonds-tags
-                                                               (cons coll)))
-                                                         []
-                                                         (op diff-result)))
-                                                      [:to-create :inconsistent :to-delete])))
+  (let [diffed (map sanitize-resources)])
+  (zipmap [:to-create :inconsistent :to-delete]
+          (map (fn[op]
+                 (reduce
+                  (fn[coll almonds-tags]
+                    (-> (@index stack-id)
+                        almonds-tags
+                        (cons coll)))
+                  []
+                  (op diff-result)))
+               [:to-create :inconsistent :to-delete])))
 
 (comment (populate-diff-state :murtaza-sandbox
                               {:inconsistent #{}, :to-create #{:g2 :g3 :g1}, :to-delete #{}}))
 
-(defn diff [stack-id]
-  (reset! diff-state
-          (populate-diff-state stack-id
-                               (calculate-diff stack-id))))
+(defn diff [& args]
+  (-> (apply calculate-diff args)
+      (populate-diff-state)))
 
-(comment  (diff :murtaza-sandbox))
-
-@diff-state
-
-(def empty-diff? #(every? empty? (vals @diff-state)))
+(comment (diff :murtaza-sandbox))
 
 (defn create-resources []
-  (doseq [r (:to-create @diff-state)]
+  (doseq [r (:to-create (diff))]
     (create r)))
 
 (defn delete-resources []
-  (doseq [r (:to-delete @diff-state)]
+  (doseq [r (:to-delete (diff))]
     (delete r)))
 
-(defn push [& {:keys [with-pull] :or {with-pull true}}]
-  (when (empty-diff?) (throw+ {:operation :push :msg "No diffs to apply. Please diff first."}))
+(defn push-without-pull [& args]
   (create-resources)
-  (delete-resources)
-  (reset! diff-state {:to-create [] :inconsistent [] :to-delete []})
-  (when with-pull (pull)))
+  (delete-resources))
+
+(defn push [& args]
+  (apply push-without-pull args)
+  (pull))
 
 (comment (stage :c [{:almonds-type :customer-gateway :almonds-tags "b" :a 2}]))

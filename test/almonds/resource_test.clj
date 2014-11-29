@@ -100,14 +100,14 @@
   (r/sanitize-resources :customer-gateway rs)
   (r/diff-stack-resource :murtaza-sandbox :customer-gateway)
 
-  @r/pushed-state )
+  @r/pushed-state)
 
 (comment
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
   (r/stage my-resources)
   (r/diff :murtaza-sandbox)
-  (r/push :with-pull false)
+  (r/push)
   (r/pull)
   (r/pushed-resources-raw)
   (r/sanitize-resources)

@@ -5,16 +5,16 @@
 ;;             [almonds.vpc :as vpc]
 ;;             [almonds.customer-gateway :as cg]))
 
-;; (def v  (vpc/map->VPC {:almonds-id "my-vpc"}))
+;; (def v  (vpc/map->VPC {:almonds-tags "my-vpc"}))
 
-;; (def v2  (vpc/map->VPC {:almonds-id "my-vpc2"}))
+;; (def v2  (vpc/map->VPC {:almonds-tags "my-vpc2"}))
 
 ;; (r/stage :central-vpc v)
 ;; (r/stage :central-vpc v2)
 
-;; ;; (r/get-stack-resources :central )
+;; ;; (r/get-almonds-resources :central )
 
-;; (r/retrieve-raw-all (vpc/map->VPC {}))
+;; (r/retrieve-all (vpc/map->VPC {}))
 
 ;; ;; lets get all resources for a certain type for the stack.
 ;; ;; add stack-id also

@@ -1,10 +1,10 @@
 ;; (ns almonds.vpn-connection
 ;;   (:require [amazonica.aws.ec2 :as aws-ec2]
-;;             [almonds.resource :as r :refer [Resource is-up? retrieve-raw-all retrieve-resource]]))
+;;             [almonds.resource :as r :refer [Resource is-up? retrieve-all retrieve-resource]]))
 
-;; (defrecord VpnConnection [almonds-id]
+;; (defrecord VpnConnection [almonds-tags]
 ;;   Resource
-;;   (retrieve-raw-all [this]
+;;   (retrieve-all [this]
 ;;     (:vpn-connections (aws-ec2/describe-vpn-connections)))
 ;;   r/VpnConnection
 ;;   (is-up? [this]

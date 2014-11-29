@@ -1,6 +1,6 @@
 (ns almonds.customer-gateway
   (:require [amazonica.aws.ec2 :as aws-ec2]
-            [almonds.resource :as r :refer [validate create delete sanitize retrieve-raw-all aws-id retrieve-resource]]))
+            [almonds.resource :as r :refer [validate create delete sanitize retrieve-all aws-id pushed-resources-raw ->almond-map]]))
 
 (def type-id :customer-gateway)
 
@@ -10,16 +10,22 @@
      (defmethod validate ~resource-type [m#]
        (~validate-fn m#))
      (defmethod create ~resource-type [m#]
-       (let [response# (~create-fn (~create-map m#))]
-         (r/add-tags (get-in response# ~response-id-ks)
-                     (merge m# {:tags {}}))))
+       (let [response# (~create-fn (~create-map m#))
+             resource-id# (get-in response# ~response-id-ks)]
+         (->> m#
+              r/almonds-tags
+              r/almonds->aws-tags
+              (r/create-tags resource-id#))))
      (defmethod sanitize ~resource-type [m#]
        (-> (apply dissoc m# ~sanitize-ks)
            (~sanitize-fn)))
-     (defmethod retrieve-raw-all ~resource-type [_#]
+     (defmethod retrieve-all ~resource-type [_#]
        (-> (~describe-fn) vals first))
      (defmethod aws-id ~resource-type [m#]
-       (~aws-id-key (retrieve-resource m#)))
+       (->> m#
+           :almonds-tags
+           (apply pushed-resources-raw)
+           ~aws-id-key))
      (defmethod delete ~resource-type [m#]
        (~delete-fn {~aws-id-key (aws-id m#)}))))
 
@@ -44,24 +50,3 @@
                :describe-fn aws-ec2/describe-customer-gateways
                :aws-id-key :customer-gateway-id
                :delete-fn aws-ec2/delete-customer-gateway})
-
-;; (defmethod r/create :customer-gateway [m]
-;;   (let [request {:type "ipsec.1" :bgp-asn (:bgp-asn m) :public-ip (:ip-address m)}]
-;;     (let [response (aws-ec2/create-customer-gateway request)]
-;;       (r/add-tags (get-in response response-id-ks)
-;;                   (merge m {:tags []})))))
-
-;; (defmethod r/validate :customer-gateway [m]
-;;   true)
-
-;; (defmethod r/sanitize :customer-gateway [m]
-;;   (dissoc m :state :customer-gateway-id :type :tags))
-
-;; (defmethod r/retrieve-raw-all :customer-gateway [_]
-;;   (:customer-gateways (aws-ec2/describe-customer-gateways)))
-
-;; (defmethod aws-id :customer-gateway [m]
-;;   (:customer-gateway-id (r/retrieve-resource)))
-
-;; (defmethod r/delete :customer-gateway [m]
-;;   (aws-ec2/delete-customer-gateway {:customer-gateway-id (r/aws-id m)}))

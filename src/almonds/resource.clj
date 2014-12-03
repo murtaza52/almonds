@@ -9,17 +9,25 @@
             [clojure.data :as data]
             [schema.core :as schema]))
 
+;;(reverse (keys (zipmap [:vpc :customer-gateway :subnet] (drop 1 (range)))))
+
 ;; (defmulti resource-factory :type)
 ;; (defmethod resource-factory :default [_]
 ;;   (throw+ {:operation "Trying to create a new resource using resource factory"
 ;;            :msg "Either :type was not given or is an incorrect value."} ))
 
+;; #id [:a :b :c]
+;; reader macro that expands to a macro
+;; tries to get the id
+;; if cant find the id in pushed, then gets it from staged and creates it first.
+;; calls itself recursively
+
 (defmulti create :almonds-type)
 (defmulti sanitize :almonds-type)
 (defmulti retrieve-all :almonds-type)
 (defmulti validate :almonds-type)
-(defmulti aws-id :almonds-type)
 (defmulti delete :almonds-type)
+(defmulti aws-id-key :almonds-type)
 
 (defprotocol VpnConnection
   (is-up? [resource] "Returns true if the VPN Connection is up")
@@ -37,9 +45,9 @@
 (def index (atom {}))
 (def pushed-state (atom {}))
 
-(def resource-types [:customer-gateway])
+(def resource-types (atom #{}))
 
-(def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum resource-types) schema/Keyword schema/Int})
+(def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum @resource-types) schema/Keyword schema/Int})
 
 (defn validate-schema [m]
   (schema/validate resource-schema m))
@@ -51,11 +59,10 @@
   v)
 
 (defn clear-all []
-  (map #(reset! % {}) [index pushed-state])
-  nil)
+  (doseq [a [index pushed-state]]
+    (reset! a {})))
 
-(defn unstage [& args]
-  (reset! index {}))
+;;(difference (into #{} (vals @index)) (into #{} (filter-resources (vals @index))))
 
 (defn clear-pull-state []
   (reset! pushed-state {}))
@@ -127,10 +134,11 @@
 
 (defn ->almond-map [m]
   (let [{:keys [almonds-tags almonds-type]} (aws->almonds-tags (:tags m))]
-    (merge m {:almonds-tags almonds-tags :almonds-type almonds-type})))
+    (-> (merge m {:almonds-tags almonds-tags :almonds-type almonds-type})
+        (#(merge % {:almonds-aws-id ((aws-id-key %) %)})))))
 
-(->almond-map {:a 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
-                           {:key ":almonds-type" :value "dev-stack"}]})
+(comment (->almond-map {:vpc-id 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
+                                         {:key ":almonds-type" :value ":vpc"}]}))
 
 (defn get-pushed-resource [resource-type]
   (->> {:almonds-type resource-type}
@@ -139,10 +147,10 @@
        (filter (has-tag-key? ":almonds-type"))
        (map ->almond-map)))
 
-(comment (get-pushed-resource :customer-gateway))
+(comment (get-pushed-resource :vpc))
 
 (defn pull []
-  (->> (mapcat #(get-pushed-resource %) resource-types)
+  (->> (mapcat #(get-pushed-resource %) @resource-types)
        (reset! pushed-state)))
 
 (defn contains-set? [set1 set2]
@@ -169,8 +177,21 @@
 
 (defn pushed-resources-ids [& args]
   (->> (apply pushed-resources-raw args)
-       (map (fn [{:keys [almonds-tags almonds-type]}]
-              {:almonds-tags almonds-tags :almonds-type almonds-type}))))
+       (map :almonds-tags)))
+
+(defn aws-id [almonds-tags]
+  (->> (apply pushed-resources-raw almonds-tags)
+       first
+       :almonds-aws-id))
+
+(defn aws-id->almonds-tags [aws-id]
+  (-> (filter (fn [{:keys [almonds-aws-id]}]
+                (= almonds-aws-id aws-id))
+              (pushed-resources-raw))
+      first
+      :almonds-tags))
+
+(comment (aws-id->almonds-tags "vpc-f3eb7996"))
 
 (defn staged-resources [& args]
   (when (seq @index)
@@ -178,8 +199,7 @@
 
 (defn staged-resources-ids [& args]
   (->> (apply staged-resources args)
-       (map (fn [{:keys [almonds-tags almonds-type]}]
-              {:almonds-tags almonds-tags :almonds-type almonds-type}))))
+       (map :almonds-tags)))
 
 (comment (staged-resources))
 
@@ -203,18 +223,32 @@
 ;;                   {:value ":customer-gateway", :key ":almonds-type"}
 ;;                   {:value "[:sandbox-stack :web-tier :sync-box]", :key ":almonds-tags"}]})
 
-(defn diff-resources [staged pushed]
-  (let [d (->> (data/diff (into #{} staged)
-                          (into #{} pushed))
-               butlast
-               (map (fn[coll] (map :almonds-tags coll)))
-               (map #(into #{} %))
-               (zipmap [:to-create :to-delete]))]
-    (merge d {:inconsistent (last (data/diff (:to-delete d)
-                                             (:to-create d)))})))
+(defn inconsistent-resources [coll]
+  (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
 
-(comment (diff-resources (seq [{:almonds-tags [:g1] :a 1} {:almonds-tags [:g2] :a 2} {:almonds-tags [:g3] :a 2}])
-                         (seq [{:almonds-tags [:g2] :a 2} {:almonds-tags [:g1] :a 2} {:almonds-tags [:g4] :a 2}])))
+(inconsistent-resources [])
+
+(defn diff-ids [& args]
+  (->> (data/diff (into #{} (apply staged-resources-ids args))
+                  (into #{} (apply pushed-resources-ids args)))
+       (zipmap [:to-create :to-delete :inconsistent])
+       (#(update-in % [:inconsistent] inconsistent-resources))))
+
+(->> (data/diff (into #{} (apply staged-resources-ids [2]))
+                (into #{} (apply pushed-resources-ids [2])))
+     (zipmap [:to-create :to-delete :inconsistent])
+     (#(update-in % [:inconsistent] inconsistent-resources)))
+
+
+(defn compare-resources [& args]
+  (hash-map :staged (apply staged-resources args)
+            :pushed (apply pushed-resources args)))
+
+(comment  (apply pushed-resources [2]))
+
+(comment (compare-resources :s 2))
+
+(comment (diff-ids))
 
 (defn sanitize-resources []
   (->> @pushed-state
@@ -241,23 +275,38 @@
 (defn to-json [m]
   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
+(defn add-type-to-tags [{:keys [almonds-type] :as m}]
+  (update-in m
+             [:almonds-tags]
+             (fn[tags]
+               (-> (into #{} tags)
+                   (conj almonds-type)))))
+
+(add-type-to-tags {:almonds-tags [:a] :almonds-type :abc})
+
+(defn stage-resource [resource]
+  (when (validate resource)
+    (-> resource
+        (add-type-to-tags)
+        (#(hash-map (:almonds-tags %) %))
+        (#(swap! index merge %)))))
+
+(comment (stage-resource {:almonds-tags [:a :b] :almonds-type :customer-gateway}))
+
 (defn stage [coll]
-  (->> coll
-       (map (fn [resource]
-              (when (validate resource)
-                (swap! index
-                       merge
-                       {(:almonds-tags resource) resource}))))))
+  (doall (map stage-resource coll)))
 
-(defn diff-ids [& args]
-  (-> (diff-resources (apply staged-resources args)
-                      (apply pushed-resources args))))
+(defn unstage [& args]
+  (let [to-stage (->> (apply filter-resources (vals @index) args)
+                      (into #{})
+                      (difference (into #{} (vals @index))))]
+    (reset! index {})
+    (stage to-stage)))
 
-(comment (diff-ids 1))
+(comment (diff-ids))
 
 (defn diff [& args]
-  (let [{:keys [inconsistent to-delete to-create]} (diff-resources (apply staged-resources args)
-                                                                   (apply pushed-resources args))]
+  (let [{:keys [inconsistent to-delete to-create]} (apply diff-ids args)]
     {:to-create (mapcat #(apply staged-resources %) to-create)
      :inconsistent (mapcat #(apply staged-resources %) inconsistent)
      :to-delete (mapcat #(apply pushed-resources %) to-delete)}))
@@ -265,20 +314,26 @@
 (comment (pushed-resources-raw 1)
          (staged-resources))
 
-(comment (diff 1))
+(comment (diff))
 
-(defn create-resources [coll]
-  (doseq [v coll]
-    (create v)))
+(defn log-op [op resource-type ])
 
 (defn delete-resources [coll]
-  (doseq [v coll]
+  (doseq [r-type (reverse @resource-types)
+          v (filter-resources coll r-type)]
+    (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
     (delete v)))
+
+(defn create-resources [coll]
+  (doseq [r-type @resource-types
+          v (filter-resources coll r-type)]
+    (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
+    (create v)))
 
 (defn push-without-pull [& args]
   (let [{:keys [to-create to-delete]} (apply diff args)]
-    (create-resources to-create)
-    (delete-resources to-delete)))
+    (delete-resources to-delete)
+    (create-resources to-create)))
 
 (defn push [& args]
   (apply push-without-pull args)

@@ -102,16 +102,32 @@
 
   @r/pushed-state)
 
+(def my-vpcs [{:almonds-type :vpc :almonds-tags [:sandbox :web-tier 1] :cidr-block "10.2.0.0/16" :instance-tenancy "default"}])
+
+(def subnets [{:almonds-type :subnet :almonds-tags [:s 1] :cidr-block "10.2.11.0/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}
+              {:almonds-type :subnet :almonds-tags [:s 2] :cidr-block "10.2.10.128/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}])
+
 (comment
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
-  (r/stage my-resources)
-  (r/diff)
-  (r/push 1)
+  ;;(r/stage my-resources)
+  (r/staged-resources)
+  (->> (r/diff) :to-create (map r/create))
+  (r/push)
   (r/pull)
-  (r/pushed-resources-raw 1)
+  (r/pushed-resources-raw)
+  (r/pushed-resources :vpc)
+  (r/pushed-resources-ids)
   (r/sanitize-resources)
   (r/create (first my-resources))
-  (r/delete (first my-resources)))
+  (r/delete (first my-resources))
+  (-> (r/compare-resources 2 :s) :pushed first (r/delete))
+  (r/stage my-vpcs)
+  (r/stage subnets)
+
+  (r/aws-id #{1 :web-tier :sandbox :vpc})
+;; compare ;; compare-inconsistent
+)
 
 ;; (r/aws-id (r/pushed-resources 1))
+;; order, reader macros, delayed ID

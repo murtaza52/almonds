@@ -5,29 +5,28 @@
             [camel-snake-kebab.core :as kebab :refer [->CamelCase]]
             [clojure.data.json :refer [write-str]]
             [amazonica.aws.ec2 :as aws-ec2]
+            [amazonica.core :as amz]
             [clojure.set :refer [difference intersection]]
             [clojure.data :as data]
             [schema.core :as schema]))
 
-;;(reverse (keys (zipmap [:vpc :customer-gateway :subnet] (drop 1 (range)))))
+(defmacro defmulti-with-default [name]
+  `(do
+     (defmulti ~name :almonds-type)
+     (defmethod ~name :default [args#]
+       (throw+ {:operation '~name
+                :args (print-str args#)
+                :msg "Either :type was not given or is an incorrect value."}))))
 
-;; (defmulti resource-factory :type)
-;; (defmethod resource-factory :default [_]
-;;   (throw+ {:operation "Trying to create a new resource using resource factory"
-;;            :msg "Either :type was not given or is an incorrect value."} ))
+(defmulti-with-default create)
+(defmulti-with-default sanitize)
+(defmulti-with-default retrieve-all)
+(defmulti-with-default validate)
+(defmulti-with-default delete)
+(defmulti-with-default aws-id-key)
+(defmulti-with-default dependents)
+(defmulti-with-default pre-staging)
 
-;; #id [:a :b :c]
-;; reader macro that expands to a macro
-;; tries to get the id
-;; if cant find the id in pushed, then gets it from staged and creates it first.
-;; calls itself recursively
-
-(defmulti create :almonds-type)
-(defmulti sanitize :almonds-type)
-(defmulti retrieve-all :almonds-type)
-(defmulti validate :almonds-type)
-(defmulti delete :almonds-type)
-(defmulti aws-id-key :almonds-type)
 
 (defprotocol VpnConnection
   (is-up? [resource] "Returns true if the VPN Connection is up")
@@ -44,7 +43,7 @@
 
 (def index (atom {}))
 (def pushed-state (atom {}))
-
+(def remote-state (atom {}))
 (def resource-types (atom #{}))
 
 (def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum @resource-types) schema/Keyword schema/Int})
@@ -59,12 +58,13 @@
   v)
 
 (defn clear-all []
-  (doseq [a [index pushed-state]]
+  (doseq [a [index pushed-state remote-state]]
     (reset! a {})))
 
 ;;(difference (into #{} (vals @index)) (into #{} (filter-resources (vals @index))))
 
 (defn clear-pull-state []
+  (reset! remote-state {})
   (reset! pushed-state {}))
 
 (defn almonds->aws-tags [tags]
@@ -140,17 +140,17 @@
 (comment (->almond-map {:vpc-id 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
                                          {:key ":almonds-type" :value ":vpc"}]}))
 
-(defn get-pushed-resource [resource-type]
-  (->> {:almonds-type resource-type}
-       (retrieve-all)
-       (filter (has-tag-key? ":almonds-tags"))
-       (filter (has-tag-key? ":almonds-type"))
-       (map ->almond-map)))
-
-(comment (get-pushed-resource :vpc))
+(defn pull-remote-state []
+  (->> @resource-types
+       (mapcat #(retrieve-all {:almonds-type %}))
+       (reset! remote-state)))
 
 (defn pull []
-  (->> (mapcat #(get-pushed-resource %) @resource-types)
+  (->> (if (seq @remote-state) @remote-state (pull-remote-state))
+       (filter (has-tag-key? ":almonds-tags"))
+       (filter (has-tag-key? ":almonds-type"))
+       (map ->almond-map)
+       ((fn [coll] (concat coll (mapcat dependents coll))))
        (reset! pushed-state)))
 
 (defn contains-set? [set1 set2]
@@ -234,15 +234,13 @@
        (zipmap [:to-create :to-delete :inconsistent])
        (#(update-in % [:inconsistent] inconsistent-resources))))
 
-(->> (data/diff (into #{} (apply staged-resources-ids [2]))
-                (into #{} (apply pushed-resources-ids [2])))
-     (zipmap [:to-create :to-delete :inconsistent])
-     (#(update-in % [:inconsistent] inconsistent-resources)))
-
-
 (defn compare-resources [& args]
   (hash-map :staged (apply staged-resources args)
             :pushed (apply pushed-resources args)))
+
+(defn compare-resources-raw [& args]
+  (hash-map :staged (apply staged-resources args)
+            :pushed (apply pushed-resources-raw args)))
 
 (comment  (apply pushed-resources [2]))
 
@@ -288,6 +286,7 @@
   (when (validate resource)
     (-> resource
         (add-type-to-tags)
+        (pre-staging)
         (#(hash-map (:almonds-tags %) %))
         (#(swap! index merge %)))))
 

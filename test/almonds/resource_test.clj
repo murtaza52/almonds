@@ -81,20 +81,6 @@
 (comment  (r/sanitize-resources :customer-gateway
                                 (r/get-almonds-resources :central :customer-gateway)))
 
-(def rs [{:state "available",
-          :type "ipsec.1",
-          :customer-gateway-id "cgw-a58c6ecc",
-          :tags
-          [{:value "CentralVpcCustomerGatewayPrimary", :key "aws:cloudformation:logical-id"}
-           {:value "CentralVpcTwVpn", :key "aws:cloudformation:stack-name"}
-           {:value "Central VPC - Primary", :key "Name"}
-           {:value
-            "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
-            :key "aws:cloudformation:stack-id"}
-           {:value "central", :key "stack-id"}
-           {:value "CentralVpcCustomerGatewayPrimary", :key "almonds-tags"}],
-          :bgp-asn "65000",
-          :ip-address "182.72.16.113"}])
 
 (comment
   (r/sanitize-resources :customer-gateway rs)
@@ -105,18 +91,33 @@
 (def my-vpcs [{:almonds-type :vpc :almonds-tags [:sandbox :web-tier 1] :cidr-block "10.2.0.0/16" :instance-tenancy "default"}])
 
 (def subnets [{:almonds-type :subnet :almonds-tags [:s 1] :cidr-block "10.2.11.0/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}
-              {:almonds-type :subnet :almonds-tags [:s 2] :cidr-block "10.2.10.128/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}])
+              {:almonds-type :subnet :almonds-tags [:s 2] :cidr-block "10.2.13.128/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}])
+
+ (def acls [{:almonds-type :network-acl :almonds-tags [:first] :vpc-id [:sandbox :web-tier 1]}])
+
+(def acl-entries [{:almonds-type :network-acl-entry
+                   :egress false
+                   :protocol "tcp"
+                   :rule-action "allow"
+                   :port-range "8080"
+                   :cidr-block "0.0.0.0/0"
+                   :rule-number 1
+                   :network-acl-id #{:first}}])
+(r/stage my-vpcs)
+(r/stage subnets)
+(r/stage acls)
+(r/stage acl-entries)
 
 (comment
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
   ;;(r/stage my-resources)
-  (r/staged-resources)
-  (->> (r/diff) :to-create (map r/create))
-  (r/push)
+  (r/staged-resources :network-acl-entry)
+  (->> (r/diff :network-acl-entry) :to-create (map r/create))
+  (r/push :network-acl-entry)
   (r/pull)
-  (r/pushed-resources-raw)
-  (r/pushed-resources :vpc)
+  (r/pushed-resources-raw :network-acl)
+  (r/pushed-resources :network-acl-entry)
   (r/pushed-resources-ids)
   (r/sanitize-resources)
   (r/create (first my-resources))
@@ -124,9 +125,15 @@
   (-> (r/compare-resources 2 :s) :pushed first (r/delete))
   (r/stage my-vpcs)
   (r/stage subnets)
+  (r/stage acls)
+  (r/stage acl-entries)
+  (r/compare-resources :network-acl :first)
 
+  @r/remote-state
   (r/aws-id #{1 :web-tier :sandbox :vpc})
 ;; compare ;; compare-inconsistent
+
+;; pay for sevenolives
 )
 
 ;; (r/aws-id (r/pushed-resources 1))

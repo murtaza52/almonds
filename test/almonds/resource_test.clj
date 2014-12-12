@@ -6,8 +6,6 @@
             [clojure.set :as set :refer [difference]]
             [schema.core :as schema]))
 
-
-
 ;; (comment
 
 ;;   ;; stage test

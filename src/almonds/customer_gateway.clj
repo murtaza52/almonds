@@ -1,21 +1,8 @@
 (ns almonds.customer-gateway
   (:require [amazonica.aws.ec2 :as aws-ec2]
-            [almonds.resource :as r :refer [validate create delete sanitize retrieve-all aws-id pushed-resources-raw ->almond-map resource-types aws-id-key dependents pre-staging]]))
+            [almonds.resource :as r :refer [validate create delete sanitize retrieve-all aws-id pushed-resources-raw ->almond-map resource-types aws-id-key dependents pre-staging drop-val coll-contains? rule-type]]))
 
 (def type-id :customer-gateway)
-
-(defn drop-val [v coll]
-  (clojure.set/difference (into #{} coll) #{v}))
-
-(defn coll-contains? [v coll]
-  (if ((into #{} coll) v)
-    true
-    false))
-
-(defn rule-type [b]
-  (if (true? b) :egress :ingress))
-
-(comment (coll-contains? 2 [3 2]))
 
 (defmacro defresource
   [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate]

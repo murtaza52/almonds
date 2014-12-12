@@ -61,7 +61,19 @@
   (doseq [a [index pushed-state remote-state]]
     (reset! a {})))
 
-;;(difference (into #{} (vals @index)) (into #{} (filter-resources (vals @index))))
+(defn drop-val [v coll]
+  (clojure.set/difference (into #{} coll) #{v}))
+
+(defn coll-contains? [v coll]
+  (if ((into #{} coll) v)
+    true
+    false))
+
+(defn rule-type [b]
+  (if (true? b) :egress :ingress))
+
+(comment (coll-contains? 2 [3 2]))
+
 
 (defn clear-pull-state []
   (reset! remote-state {})
@@ -159,8 +171,16 @@
 
 (comment (filter-resources @pushed-state))
 
+(defn pull []
+  (->> (pull-remote-state)
+       (filter (has-tag-key? ":almonds-tags"))
+       (filter (has-tag-key? ":almonds-type"))
+       (map ->almond-map)
+       ((fn [coll] (concat coll (mapcat dependents coll))))
+       (reset! pushed-state)))
+
 (defn pushed-resources-raw [& args]
-  (when-not (seq @pushed-state) (println "The pushed-state is empty, please take a pull."))
+  (when-not (seq @pushed-state) (pull))
   (apply filter-resources @pushed-state args))
 
 (defn pushed-resources [& args]
@@ -171,24 +191,15 @@
   (->> (apply pushed-resources-raw args)
        (map :almonds-tags)))
 
-(defn pull []
-  (->> (pull-remote-state)
-       (filter (has-tag-key? ":almonds-tags"))
-       (filter (has-tag-key? ":almonds-type"))
-       (map ->almond-map)
-       ((fn [coll] (concat coll (mapcat dependents coll))))
-       (reset! pushed-state))
-  (pushed-resources-ids))
-
 (defn aws-id [almonds-tags]
   (let [resources (apply pushed-resources-raw almonds-tags)]
     (when-not (seq resources) (throw+ {:operation 'aws-id
                                 :args (print-str almonds-tags)
                                 :msg "Unable to find aws-id for the given almonds-tags."}))
-    (when (< 1 (count resources) (throw+ {:operation 'aws-id
-                                   :args (print-str almonds-tags)
-                                   :resources (print-str almonds-tags)
-                                   :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."})))
+    (when (< 1 (count resources)) (throw+ {:operation 'aws-id
+                                           :args (print-str almonds-tags)
+                                           :num-of-resources (count resources)
+                                           :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."}))
     (-> resources first :almonds-aws-id)))
 
 (defn aws-id->almonds-tags [aws-id]
@@ -226,12 +237,6 @@
                      [{:value "Sandbox_Stack : Web_Tier : Sync_Box : 1", :key "Name"}
                       {:value "[:sandbox-stack :web-tier :sync-box 1]", :key ":almonds-tags"}
                       {:value ":customer-gateway", :key ":almonds-type"}]}))
-
-
-;; (sanitize {:bgp-asn "6500"
-;;            :tags [{:value "[:sandbox-stack :web-tier :sync-box]", :key "Name"}
-;;                   {:value ":customer-gateway", :key ":almonds-type"}
-;;                   {:value "[:sandbox-stack :web-tier :sync-box]", :key ":almonds-tags"}]})
 
 (defn inconsistent-resources [coll]
   (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
@@ -285,8 +290,7 @@
   (update-in m
              [:almonds-tags]
              (fn[tags]
-               (-> (into #{} tags)
-                   (conj almonds-type)))))
+               (vec (if (coll-contains? almonds-type tags) tags (cons almonds-type tags))))))
 
 (add-type-to-tags {:almonds-tags [:a] :almonds-type :abc})
 

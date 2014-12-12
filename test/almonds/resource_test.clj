@@ -27,7 +27,7 @@
                       {:value "Central VPC - Backup", :key "Name"}
                       {:value "CentralVpcTwVpn", :key "aws:cloudformation:stack-name"}
                       {:value
-                      "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
+                       "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c",
                        :key "aws:cloudformation:stack-id"}
                       {:value "central", :key "stack-id"}
                       {:value "CentralVpcCustomerGatewayBackup", :key "aws:cloudformation:logical-id"}],
@@ -88,33 +88,45 @@
 
   @r/pushed-state)
 
-(def my-vpcs [{:almonds-type :vpc :almonds-tags [:sandbox :web-tier 1] :cidr-block "10.2.0.0/16" :instance-tenancy "default"}])
+(def my-resources [{:almonds-type :vpc
+                    :almonds-tags [:sandbox :web-tier 1]
+                    :cidr-block "10.2.0.0/16"
+                    :instance-tenancy "default"}
 
-(def subnets [{:almonds-type :subnet :almonds-tags [:s 1] :cidr-block "10.2.11.0/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}
-              {:almonds-type :subnet :almonds-tags [:s 2] :cidr-block "10.2.13.128/25" :availability-zone "us-east-1b" :vpc-id #{1 :web-tier :sandbox :vpc}}])
+                   {:almonds-type :subnet
+                    :almonds-tags [:s 1]
+                    :cidr-block "10.2.11.0/25"
+                    :availability-zone "us-east-1b"
+                    :vpc-id [1 :web-tier :sandbox]}
 
- (def acls [{:almonds-type :network-acl :almonds-tags [:first] :vpc-id [:sandbox :web-tier 1]}])
+                   {:almonds-type :subnet
+                    :almonds-tags [:s 2]
+                    :cidr-block "10.2.13.128/25"
+                    :availability-zone "us-east-1b"
+                    :vpc-id [1 :web-tier :sandbox]}])
+
+(def vpc [{:almonds-type :vpc
+           :almonds-tags [:sandbox :web-tier 1]
+           :cidr-block "10.2.0.0/16"
+           :instance-tenancy "default"}])
+
+(def acls [{:almonds-type :network-acl :almonds-tags [:first] :vpc-id [:sandbox :web-tier 1]}])
 
 (def acl-entries [{:almonds-type :network-acl-entry
                    :egress false
-                   :protocol "tcp"
+                   :protocol "-1"
                    :rule-action "allow"
-                   :port-range "8080"
+                   :port-range {:from 8080 :to 8080}
                    :cidr-block "0.0.0.0/0"
                    :rule-number 1
-                   :network-acl-id #{:first}}])
-(r/stage my-vpcs)
-(r/stage subnets)
-(r/stage acls)
-(r/stage acl-entries)
-
+                   :network-acl-id [:first]}])
 (comment
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
   ;;(r/stage my-resources)
-  (r/staged-resources :network-acl-entry)
-  (->> (r/diff :network-acl-entry) :to-create (map r/create))
-  (r/push :network-acl-entry)
+  (r/staged-resources)
+  (->> (r/diff-ids) :to-create (map r/create))
+  (r/push)
   (r/pull)
   (r/pushed-resources-raw :network-acl)
   (r/pushed-resources :network-acl-entry)
@@ -123,17 +135,22 @@
   (r/create (first my-resources))
   (r/delete (first my-resources))
   (-> (r/compare-resources 2 :s) :pushed first (r/delete))
-  (r/stage my-vpcs)
-  (r/stage subnets)
+  (r/stage my-resources)
+  (r/stage vpc)
   (r/stage acls)
   (r/stage acl-entries)
   (r/compare-resources :network-acl :first)
 
-  @r/remote-state
+@r/indexq
   (r/aws-id #{1 :web-tier :sandbox :vpc})
-;; compare ;; compare-inconsistent
+  ;; compare ;; compare-inconsistent
 
-;; pay for sevenolives
+  ;; pay for sevenolives
+
+  (r/stage my-resources)
+  (r/stage acls)
+  (r/stage acl-entries)
+
 )
 
 ;; (r/aws-id (r/pushed-resources 1))

@@ -44,7 +44,7 @@
 (def index (atom {}))
 (def pushed-state (atom {}))
 (def remote-state (atom {}))
-(def resource-types (atom #{}))
+(def resource-types (atom []))
 
 (def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum @resource-types) schema/Keyword schema/Int})
 
@@ -145,14 +145,6 @@
        (mapcat #(retrieve-all {:almonds-type %}))
        (reset! remote-state)))
 
-(defn pull []
-  (->> (if (seq @remote-state) @remote-state (pull-remote-state))
-       (filter (has-tag-key? ":almonds-tags"))
-       (filter (has-tag-key? ":almonds-type"))
-       (map ->almond-map)
-       ((fn [coll] (concat coll (mapcat dependents coll))))
-       (reset! pushed-state)))
-
 (defn contains-set? [set1 set2]
   (if (= (intersection set1 set2) set2)
     true false))
@@ -168,7 +160,7 @@
 (comment (filter-resources @pushed-state))
 
 (defn pushed-resources-raw [& args]
-  (when-not (seq @pushed-state) (pull))
+  (when-not (seq @pushed-state) (println "The pushed-state is empty, please take a pull."))
   (apply filter-resources @pushed-state args))
 
 (defn pushed-resources [& args]
@@ -179,17 +171,35 @@
   (->> (apply pushed-resources-raw args)
        (map :almonds-tags)))
 
+(defn pull []
+  (->> (pull-remote-state)
+       (filter (has-tag-key? ":almonds-tags"))
+       (filter (has-tag-key? ":almonds-type"))
+       (map ->almond-map)
+       ((fn [coll] (concat coll (mapcat dependents coll))))
+       (reset! pushed-state))
+  (pushed-resources-ids))
+
 (defn aws-id [almonds-tags]
-  (->> (apply pushed-resources-raw almonds-tags)
-       first
-       :almonds-aws-id))
+  (let [resources (apply pushed-resources-raw almonds-tags)]
+    (when-not (seq resources) (throw+ {:operation 'aws-id
+                                :args (print-str almonds-tags)
+                                :msg "Unable to find aws-id for the given almonds-tags."}))
+    (when (< 1 (count resources) (throw+ {:operation 'aws-id
+                                   :args (print-str almonds-tags)
+                                   :resources (print-str almonds-tags)
+                                   :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."})))
+    (-> resources first :almonds-aws-id)))
 
 (defn aws-id->almonds-tags [aws-id]
-  (-> (filter (fn [{:keys [almonds-aws-id]}]
-                (= almonds-aws-id aws-id))
-              (pushed-resources-raw))
-      first
-      :almonds-tags))
+  (let [tags (-> (filter (fn [{:keys [almonds-aws-id]}]
+                           (= almonds-aws-id aws-id))
+                         (pushed-resources-raw))
+                 first
+                 :almonds-tags)]
+    (if tags tags (throw+ {:operation 'aws-id->almonds-tags
+                           :args (print-str aws-id)
+                           :msg "Unable to find almonds-tags for the given aws-id."}))))
 
 (comment (aws-id->almonds-tags "vpc-f3eb7996"))
 
@@ -225,8 +235,6 @@
 
 (defn inconsistent-resources [coll]
   (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
-
-(inconsistent-resources [])
 
 (defn diff-ids [& args]
   (->> (data/diff (into #{} (apply staged-resources-ids args))
@@ -293,7 +301,8 @@
 (comment (stage-resource {:almonds-tags [:a :b] :almonds-type :customer-gateway}))
 
 (defn stage [coll]
-  (doall (map stage-resource coll)))
+  (doall (map stage-resource coll))
+  (staged-resources-ids))
 
 (defn unstage [& args]
   (let [to-stage (->> (apply filter-resources (vals @index) args)

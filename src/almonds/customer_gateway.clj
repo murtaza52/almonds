@@ -7,18 +7,26 @@
 (defn drop-val [v coll]
   (clojure.set/difference (into #{} coll) #{v}))
 
+(defn coll-contains? [v coll]
+  (if ((into #{} coll) v)
+    true
+    false))
+
 (defn rule-type [b]
   (if (true? b) :egress :ingress))
+
+(comment (coll-contains? 2 [3 2]))
 
 (defmacro defresource
   [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate]
     :or {pre-staging-fn identity create-tags? true delete-fn false delete-fn-alternate false} }]
   `(do
-     (swap! resource-types conj ~resource-type)
+     (when-not (coll-contains? ~resource-type @resource-types)
+       (swap! resource-types conj ~resource-type))
      (defmethod validate ~resource-type [m#]
        (~validate-fn m#))
      (defmethod create ~resource-type [m#]
-       (let [response# (~create-fn (~create-map m#))]
+       (when-let [response# (~create-fn (~create-map m#))]
          (swap! r/pushed-state conj (-> response#
                                         vals
                                         first
@@ -99,26 +107,34 @@
                                                  :rule-number 32767,
                                                  :rule-action "deny",
                                                  :egress true,
-                                                 :cidr-block "0.0.0.0/0"}]))
+                                                 :cidr-block "0.0.0.0/0"}])
+                                m)
               :dependents-fn (fn[m] (->> m :entries (map #(merge % {:almonds-type :network-acl-entry
                                                                     :almonds-tags (apply conj
                                                                                          #{:network-acl-entry (rule-type (:egress %)) (:rule-number %)}
                                                                                          (drop-val :network-acl (:almonds-tags m)))
                                                                     :network-acl-id (:almonds-tags m)}))))})
 
-
+(defn default-acl-entry? [{:keys [rule-number]}]
+  (>= rule-number 32767))
 
 (defresource {:resource-type :network-acl-entry
               :create-map (fn[{:keys [protocol rule-number egress cidr-block port-range rule-action network-acl-id]}]
                              (hash-map :protocol protocol :rule-number rule-number :rule-action rule-action
-                                       :port-range port-range :cidr-block cidr-block :network-acl-id (aws-id network-acl-id)))
-              :create-fn aws-ec2/create-network-acl-entry
+                                       :port-range port-range :cidr-block cidr-block :network-acl-id (aws-id network-acl-id) :egress egress))
+              :create-fn #(if-not (default-acl-entry? %)
+                            (aws-ec2/create-network-acl-entry %)
+                            (println "Can not create default acl entry, it is created with the acl."))
               :validate-fn (constantly true)
               :sanitize-ks []
               :sanitize-fn identity
               :describe-fn (constantly '())
               :aws-id-key nil
-              :delete-fn-alternate (fn[m] (aws-ec2/delete-network-acl-entry {:egress (:egress m) :network-acl-id (aws-id (:network-acl-id m)) :rule-number (:rule-number m)}))
+              :delete-fn-alternate (fn[m]
+                                     (if-not (default-acl-entry? m)
+                                       (aws-ec2/delete-network-acl-entry
+                                        {:egress (:egress m) :network-acl-id (aws-id (:network-acl-id m)) :rule-number (:rule-number m)})
+                                       (println "Can not delete default acl entry, it will be deleted with the acl.")))
               :dependents-fn (constantly '())
               :pre-staging-fn (fn[m]
                                 (update-in m

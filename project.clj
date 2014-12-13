@@ -1,5 +1,5 @@
 (defproject almonds "0.2.0"
-  :description "A library for AWS automation"
+  :description "A library for infrastructure automation"
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [amazonica "0.3.4"]
                  [org.clojure/core.match "0.2.1"]

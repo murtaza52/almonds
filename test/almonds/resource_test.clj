@@ -114,17 +114,18 @@
                    :egress false
                    :protocol "-1"
                    :rule-action "allow"
-                   :port-range {:from 8080 :to 8080}
+                   :port-range {:from "22" :to "22"}
                    :cidr-block "0.0.0.0/0"
-                   :rule-number 1
+                   :rule-number 3
                    :network-acl-id [:first]}])
 (comment
   (r/clear-all) ;; :pull :staging :diff
   (r/unstage)
   ;;(r/stage my-resources)
-  (r/staged-resources)
-  (->> (r/diff-ids) :to-create (map r/create))
-  (r/push)
+  (r/staged-resources :network-acl)
+@r/index
+  (->> (r/diff :network-acl-entry 2) :to-create (map r/create))
+  (r/push :network-acl-entry 3)
   (r/pull)
   (r/pushed-resources-raw :network-acl)
   (r/pushed-resources :network-acl-entry)
@@ -137,9 +138,8 @@
   (r/stage vpc)
   (r/stage acls)
   (r/stage acl-entries)
-  (r/compare-resources :network-acl :first)
+  (r/compare-resources 2)
 
-@r/indexq
   (r/aws-id #{1 :web-tier :sandbox :vpc})
   ;; compare ;; compare-inconsistent
 

@@ -82,33 +82,36 @@
               :describe-fn aws-ec2/describe-network-acls
               :aws-id-key :network-acl-id
               :delete-fn aws-ec2/delete-network-acl
-              :pre-staging-fn (fn[m] (r/stage  [{:network-acl-id (:almonds-tags m),
-                                                 :almonds-type :network-acl-entry,
-                                                 :protocol "-1",
-                                                 :rule-number 32767,
-                                                 :rule-action "deny",
-                                                 :cidr-block "0.0.0.0/0"}
-                                                {:network-acl-id (:almonds-tags m),
-                                                 :almonds-type :network-acl-entry,
-                                                 :protocol "-1",
-                                                 :rule-number 32767,
-                                                 :rule-action "deny",
-                                                 :egress true,
-                                                 :cidr-block "0.0.0.0/0"}])
-                                m)
+              :pre-staging-fn (fn[m]
+                                (r/stage  [{:network-acl-id (:almonds-tags m),
+                                            :almonds-type :network-acl-entry,
+                                            :protocol "-1",
+                                            :rule-number 32767,
+                                            :rule-action "deny",
+                                            :cidr-block "0.0.0.0/0"}
+                                           {:network-acl-id (:almonds-tags m),
+                                            :almonds-type :network-acl-entry,
+                                            :protocol "-1",
+                                            :rule-number 32767,
+                                            :rule-action "deny",
+                                            :egress true,
+                                            :cidr-block "0.0.0.0/0"}])
+                                (r/add-type-to-tags :vpc-id :vpc m))
               :dependents-fn (fn[m] (->> m :entries (map #(merge % {:almonds-type :network-acl-entry
-                                                                    :almonds-tags (apply conj
-                                                                                         #{:network-acl-entry (rule-type (:egress %)) (:rule-number %)}
-                                                                                         (drop-val :network-acl (:almonds-tags m)))
+                                                                    :almonds-tags (vec (concat
+                                                                                        (drop-val :network-acl (:almonds-tags m))
+                                                                                        [:network-acl-entry (rule-type (:egress %)) (:rule-number %)]))
                                                                     :network-acl-id (:almonds-tags m)}))))})
 
 (defn default-acl-entry? [{:keys [rule-number]}]
   (>= rule-number 32767))
 
 (defresource {:resource-type :network-acl-entry
-              :create-map (fn[{:keys [protocol rule-number egress cidr-block port-range rule-action network-acl-id]}]
-                             (hash-map :protocol protocol :rule-number rule-number :rule-action rule-action
-                                       :port-range port-range :cidr-block cidr-block :network-acl-id (aws-id network-acl-id) :egress egress))
+              :create-map (fn[m]
+                            (-> m
+                                (update-in [:network-acl-id] aws-id)
+                                (update-in [:egress] #(if % % false))
+                                (dissoc :almonds-type :almonds-tags)))
               :create-fn #(if-not (default-acl-entry? %)
                             (aws-ec2/create-network-acl-entry %)
                             (println "Can not create default acl entry, it is created with the acl."))
@@ -123,15 +126,13 @@
                                         {:egress (:egress m) :network-acl-id (aws-id (:network-acl-id m)) :rule-number (:rule-number m)})
                                        (println "Can not delete default acl entry, it will be deleted with the acl.")))
               :dependents-fn (constantly '())
-              :pre-staging-fn (fn[m]
-                                (update-in m
-                                           [:almonds-tags]
-                                           (fn[_] (apply conj
-                                                         #{:network-acl-entry (rule-type (:egress m)) (:rule-number m)}
-                                                         (drop-val :network-acl (:network-acl-id m))))))
+              :pre-staging-fn #(-> %
+                                   ((fn[m]
+                                      (assoc m :almonds-tags (vec (concat
+                                                                   [:network-acl-entry (rule-type (:egress m)) (:rule-number m)]
+                                                                   (drop-val :network-acl (:network-acl-id m)))))))
+                                   ((fn[m] (r/add-type-to-tags :network-acl-id :network-acl m)))
+                                   ((fn[m] (if (:egress m) m (dissoc m :egress)))))
               :create-tags? false})
 
-;; (def ordered-resources [vpc customer-gateway])
-
-;; (doseq [r ordered-resources]
-;;   (defresource r))
+@r/remote-state

@@ -74,7 +74,6 @@
 
 (comment (coll-contains? 2 [3 2]))
 
-
 (defn clear-pull-state []
   (reset! remote-state {})
   (reset! pushed-state {}))
@@ -194,8 +193,8 @@
 (defn aws-id [almonds-tags]
   (let [resources (apply pushed-resources-raw almonds-tags)]
     (when-not (seq resources) (throw+ {:operation 'aws-id
-                                :args (print-str almonds-tags)
-                                :msg "Unable to find aws-id for the given almonds-tags."}))
+                                       :args (print-str almonds-tags)
+                                       :msg "Unable to find aws-id for the given almonds-tags."}))
     (when (< 1 (count resources)) (throw+ {:operation 'aws-id
                                            :args (print-str almonds-tags)
                                            :num-of-resources (count resources)
@@ -242,8 +241,10 @@
   (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
 
 (defn diff-ids [& args]
-  (->> (data/diff (into #{} (apply staged-resources-ids args))
-                  (into #{} (apply pushed-resources-ids args)))
+  (->> (data/diff (into #{} (->> (apply staged-resources-ids args)
+                                 (map #(into #{} %))))
+                  (into #{} (->> (apply pushed-resources-ids args)
+                                 (map #(into #{} %)))))
        (zipmap [:to-create :to-delete :inconsistent])
        (#(update-in % [:inconsistent] inconsistent-resources))))
 
@@ -259,7 +260,7 @@
 
 (comment (compare-resources :s 2))
 
-(comment (diff-ids))
+(comment (diff-ids :network-acl-entry 1))
 
 (defn sanitize-resources []
   (->> @pushed-state
@@ -286,13 +287,18 @@
 (defn to-json [m]
   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
-(defn add-type-to-tags [{:keys [almonds-type] :as m}]
-  (update-in m
-             [:almonds-tags]
-             (fn[tags]
-               (vec (if (coll-contains? almonds-type tags) tags (cons almonds-type tags))))))
+(defn add-type-to-tags
+  ([{:keys [almonds-type] :as m}]
+     (add-type-to-tags :almonds-tags almonds-type m))
+  ([tags-key type m]
+     (update-in m
+                [tags-key]
+                (fn[tags]
+                  (vec (if (coll-contains? type tags) tags (cons type tags)))))))
 
 (add-type-to-tags {:almonds-tags [:a] :almonds-type :abc})
+
+(add-type-to-tags :vpc-id :vpc {:vpc-id [:a :b]})
 
 (defn stage-resource [resource]
   (when (validate resource)

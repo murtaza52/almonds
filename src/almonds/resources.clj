@@ -1,44 +1,9 @@
-(ns almonds.customer-gateway
+(ns almonds.resources
   (:require [amazonica.aws.ec2 :as aws-ec2]
-            [almonds.resource :as r :refer [validate create delete sanitize retrieve-all aws-id pushed-resources-raw ->almond-map resource-types aws-id-key dependents pre-staging drop-val coll-contains? rule-type]]))
-
-(def type-id :customer-gateway)
-
-(defmacro defresource
-  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate]
-    :or {pre-staging-fn identity create-tags? true delete-fn false delete-fn-alternate false} }]
-  `(do
-     (when-not (coll-contains? ~resource-type @resource-types)
-       (swap! resource-types conj ~resource-type))
-     (defmethod validate ~resource-type [m#]
-       (~validate-fn m#))
-     (defmethod create ~resource-type [m#]
-       (when-let [response# (~create-fn (~create-map m#))]
-         (swap! r/pushed-state conj (-> response#
-                                        vals
-                                        first
-                                        (#(merge % {:almonds-aws-id (% ~aws-id-key)}))
-                                        (#(merge % {:almonds-tags (:almonds-tags m#)}))
-                                        (#(merge % {:almonds-type (:almonds-type m#)}))))
-         (when ~create-tags? (->> m#
-                                  r/almonds-tags
-                                  r/almonds->aws-tags
-                                  (r/create-tags (aws-id (:almonds-tags m#)))))))
-     (defmethod sanitize ~resource-type [m#]
-       (-> (apply dissoc m# (conj ~sanitize-ks :tags :state :almonds-aws-id ~aws-id-key))
-           (~sanitize-fn)))
-     (defmethod retrieve-all ~resource-type [_#]
-       (-> (~describe-fn) vals first))
-     (defmethod delete ~resource-type [m#]
-       (if-not ~delete-fn-alternate
-         (~delete-fn {~aws-id-key (aws-id (:almonds-tags m#))})
-         (~delete-fn-alternate m#)))
-     (defmethod aws-id-key ~resource-type [_#]
-       ~aws-id-key)
-     (defmethod dependents ~resource-type [m#]
-       (~dependents-fn m#))
-     (defmethod pre-staging ~resource-type [m#]
-       (~pre-staging-fn m#))))
+            [almonds.utils :refer :all]
+            [almonds.contract :refer :all]
+            [almonds.resource :refer :all]
+            [almonds.api :refer :all]))
 
 (defresource {:resource-type :customer-gateway
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
@@ -67,7 +32,7 @@
               :create-fn aws-ec2/create-subnet
               :validate-fn (constantly true)
               :sanitize-ks [:available-ip-address-count]
-              :sanitize-fn #(update-in % [:vpc-id] r/aws-id->almonds-tags)
+              :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
               :describe-fn aws-ec2/describe-subnets
               :aws-id-key :subnet-id
               :delete-fn aws-ec2/delete-subnet
@@ -78,12 +43,12 @@
               :create-fn aws-ec2/create-network-acl
               :validate-fn (constantly true)
               :sanitize-ks [:is-default :entries :associations]
-              :sanitize-fn #(update-in % [:vpc-id] r/aws-id->almonds-tags)
+              :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
               :describe-fn aws-ec2/describe-network-acls
               :aws-id-key :network-acl-id
               :delete-fn aws-ec2/delete-network-acl
               :pre-staging-fn (fn[m]
-                                (r/stage  [{:network-acl-id (:almonds-tags m),
+                                (stage  [{:network-acl-id (:almonds-tags m),
                                             :almonds-type :network-acl-entry,
                                             :protocol "-1",
                                             :rule-number 32767,
@@ -96,15 +61,12 @@
                                             :rule-action "deny",
                                             :egress true,
                                             :cidr-block "0.0.0.0/0"}])
-                                (r/add-type-to-tags :vpc-id :vpc m))
+                                (add-type-to-tags :vpc-id :vpc m))
               :dependents-fn (fn[m] (->> m :entries (map #(merge % {:almonds-type :network-acl-entry
                                                                     :almonds-tags (vec (concat
                                                                                         (drop-val :network-acl (:almonds-tags m))
                                                                                         [:network-acl-entry (rule-type (:egress %)) (:rule-number %)]))
                                                                     :network-acl-id (:almonds-tags m)}))))})
-
-(defn default-acl-entry? [{:keys [rule-number]}]
-  (>= rule-number 32767))
 
 (defresource {:resource-type :network-acl-entry
               :create-map (fn[m]
@@ -131,8 +93,6 @@
                                       (assoc m :almonds-tags (vec (concat
                                                                    [:network-acl-entry (rule-type (:egress m)) (:rule-number m)]
                                                                    (drop-val :network-acl (:network-acl-id m)))))))
-                                   ((fn[m] (r/add-type-to-tags :network-acl-id :network-acl m)))
+                                   ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
                                    ((fn[m] (if (:egress m) m (dissoc m :egress)))))
               :create-tags? false})
-
-@r/remote-state

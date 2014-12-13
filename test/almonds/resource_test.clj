@@ -1,10 +1,11 @@
 (ns almonds.resource-test
   (:require [midje.sweet :refer [facts fact]]
-            [almonds.resource :as r]
-            [almonds.customer-gateway :as cg]
+            [almonds.api :refer :all]
             [amazonica.aws.ec2 :as aws-ec2]
             [clojure.set :as set :refer [difference]]
-            [schema.core :as schema]))
+            [schema.core :as schema]
+            [almonds.contract :refer :all]
+            [almonds.state :refer :all]))
 
 ;; (comment
 
@@ -38,21 +39,17 @@
   [{:almonds-type :customer-gateway :bgp-asn 6500 :ip-address ip-address}
    {:almonds-type :instance}])
 
-;;(def id1 (r/uuid))
-
-(defn customer-gateway-factory [{:keys [bgp-asn ip-address tags] :or {tags []}}]
-  {:bgp-asn bgp-asn :ip-address ip-address :almond-tags tags :almonds-tags (r/uuid) :almonds-type :customer-gateway})
 
 (def my-resources  [{:almonds-type :customer-gateway
                      :almonds-tags [:sandbox-stack :web-tier :sync-box 1]
                      :bgp-asn 6500
                      :ip-address "125.12.14.111"}
-                    {:almonds-type cg/type-id
+                    {:almonds-type :customer-gateway
                      :almonds-tags [:sandbox-stack :web-tier :sync-box]
                      :bgp-asn 6500
                      :ip-address "122.12.14.214"}
-                    {:almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.15.215" :almonds-tags [:sandbox-stack :app-tier :sync-box]}
-                    {:almonds-type cg/type-id :bgp-asn 6500 :ip-address "122.12.16.216" :almonds-tags [:sandbox-stack :app-tier :utility-box]}])
+                    {:almonds-type :customer-gateway :bgp-asn 6500 :ip-address "122.12.15.215" :almonds-tags [:sandbox-stack :app-tier :sync-box]}
+                    {:almonds-type :customer-gateway :bgp-asn 6500 :ip-address "122.12.16.216" :almonds-tags [:sandbox-stack :app-tier :utility-box]}])
 
 ;; (comment
 ;;   (def retrieved-rs1 [(cg/map->CustomerGateway {:almonds-tags :g4 :bgp-asn 6500 :ip-address "122.12.13.211"})
@@ -73,18 +70,18 @@
 
                                         ; (r/add-tags "cgw-a48c6ecd" [{:key "almonds-tags" :value "my-id"} {:key "stack-id" :value "my-stack"}])
 
-;; (r/retrieve-all (vpc/map->VPC {}))
+;; (retrieve-all (vpc/map->VPC {}))
 
 
-(comment  (r/sanitize-resources :customer-gateway
-                                (r/get-almonds-resources :central :customer-gateway)))
+(comment  (sanitize-resources :customer-gateway
+                                (get-almonds-resources :central :customer-gateway)))
 
 
 (comment
-  (r/sanitize-resources :customer-gateway rs)
-  (r/diff-stack-resource :murtaza-sandbox :customer-gateway)
+  (sanitize-resources :customer-gateway rs)
+  (diff-stack-resource :murtaza-sandbox :customer-gateway)
 
-  @r/pushed-state)
+  @pushed-state)
 
 (def my-resources [{:almonds-type :vpc
                     :almonds-tags [:sandbox :web-tier 1]
@@ -114,42 +111,42 @@
                    :egress false
                    :protocol "-1"
                    :rule-action "allow"
-                   :port-range {:from "22" :to "22"}
+                   :port-range {:from 22 :to 22}
                    :cidr-block "0.0.0.0/0"
                    :rule-number 3
                    :network-acl-id [:first]}])
 (comment
-  (r/clear-all) ;; :pull :staging :diff
-  (r/unstage)
-  ;;(r/stage my-resources)
-  (r/staged-resources :network-acl)
-@r/index
-  (->> (r/diff :network-acl-entry 2) :to-create (map r/create))
-  (r/push :network-acl-entry 3)
-  (r/pull)
-  (r/pushed-resources-raw :network-acl)
-  (r/pushed-resources :network-acl-entry)
-  (r/pushed-resources-ids)
-  (r/sanitize-resources)
-  (r/create (first my-resources))
-  (r/delete (first my-resources))
-  (-> (r/compare-resources 2 :s) :pushed first (r/delete))
-  (r/stage my-resources)
-  (r/stage vpc)
-  (r/stage acls)
-  (r/stage acl-entries)
-  (r/compare-resources 2)
+  (clear-all) ;; :pull :staging :diff
+  (unstage)
+  ;;(stage my-resources)
+  (staged-resources :network-acl)
+@index
+  (->> (diff :network-acl-entry) :to-create (map create))
+  (push :network-acl-entry 3)
+  (pull)
+  (pushed-resources-raw :network-acl)
+  (pushed-resources :network-acl-entry)
+  (pushed-resources-ids)
+  (sanitize-resources)
+  (create (first my-resources))
+  (delete (first my-resources))
+  (-> (compare-resources 2 :s) :pushed first (delete))
+  (stage my-resources)
+  (stage vpc)
+  (stage acls)
+  (stage acl-entries)
+  (compare-resources 2)
 
-  (r/aws-id #{1 :web-tier :sandbox :vpc})
+  (aws-id #{1 :web-tier :sandbox :vpc})
   ;; compare ;; compare-inconsistent
 
   ;; pay for sevenolives
 
-  (r/stage my-resources)
-  (r/stage acls)
-  (r/stage acl-entries)
+  (stage my-resources)
+  (stage acls)
+  (stage acl-entries)
 
 )
 
-;; (r/aws-id (r/pushed-resources 1))
+;; (aws-id (pushed-resources 1))
 ;; order, reader macros, delayed ID

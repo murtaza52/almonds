@@ -27,18 +27,6 @@
 (defmulti-with-default dependents)
 (defmulti-with-default pre-staging)
 
-
-(defprotocol VpnConnection
-  (is-up? [resource] "Returns true if the VPN Connection is up")
-  (is-static? [resource] "Returns true if the connection is static")
-  (has-route? [resource route] "Returns true if it has the route"))
-
-(defprotocol VirtualPrivateGateway
-  (is-attached? [resource] "Returns true if the gateway is attached to a VPC."))
-
-(defprotocol RouteTable
-  (route-propogation? [route-table virtual-private-gateway] "Returns true if the route propogationfor the virtual provate gateway for the route table is turned on."))
-
 (defn uuid [] (java.util.UUID/randomUUID))
 
 (def index (atom {}))

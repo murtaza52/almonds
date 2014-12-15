@@ -25,13 +25,13 @@ The current crop of toolings are like an hammer, and that also a buggy hammer if
 
 As developers the least we need is powerfull and precise tools which can be tamed and moulded as we want and no more - more in the line of emacs and vim. almonds is an attempt to provide such a tool. almonds tries to provide a set of building blocks, fine grained operations, which can then be composed to form higher lavel of abstractions. It is an attempt to provide the same level of power and flexibility that we have while working with other types of apps to have with infrastructure elements.
 
-1.  Set of primitives to deal with infrastructure resources.
-2.  Fine grained control over application of these primitives to resources.
-3.  A saner approach to state management.
-4.  Concept of uniquenes for resources and ability to group them.
-5.  API which can be used for composing operations as needed, or can be used to build applications over it.
-6.  A thin layer over the AWS SDK to deal with its inconsistensies.
-7.  No magic, its a powerful but dumb tool.
+-   Set of primitives to deal with infrastructure resources.
+-   Fine grained control over application of these primitives to resources.
+-   A saner approach to state management.
+-   Concept of uniquenes for resources and ability to group them.
+-   API which can be used for composing operations as needed, or can be used to build applications over it.
+-   A thin layer over the AWS SDK to deal with its inconsistensies.
+-   No magic, its a powerful but dumb tool.
 
 # status<a id="sec-3" name="sec-3"></a>
 
@@ -49,10 +49,8 @@ It's not published on clojars/maven yet, so please clone the project and include
 
 -   Resources are defined as a hash map.
 -   Each resource has two mandatory properties -
-
-    :almonds-type :: this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
-
-    :almonds-tags :: this key is an array, and is used to uniquely identify that resource. The above :almonds-type is also added to the tags array when the resource is staged.
+    -   **:almonds-type:** this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
+    -   **:almonds-tags:** this key is an array, and is used to uniquely identify that resource. The above :almonds-type is also added to the tags array when the resource is staged.
 -   All other keys and values are those that correspond to the respective resource's AWS Java API.
 -   The two almonds properties are saved as AWS tags, when the resources are created remotely. These two properties are again added to the resources when they are retrieved from AWS, and are critical to state management.
 -   References are also defined in terms of :almonds-tags (ex In the above example, the vpc-id contains the value of the :almonds-tags of the vpc). These references are resolved before performing any operations remotely.

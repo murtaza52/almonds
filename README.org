@@ -33,8 +33,8 @@ It's not published on clojars/maven yet, so please clone the project and include
 **** defining resources -
     + Resources are defined as a hash map.
     + Each resource has two mandatory properties -
-      :almonds-type :: this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
-      :almonds-tags :: this key is an array, and is used to uniquely identify that resource. The above :almonds-type is also added to the tags array when the resource is staged.
+      - :almonds-type :: this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
+      - :almonds-tags :: this key is an array, and is used to uniquely identify that resource. The above :almonds-type is also added to the tags array when the resource is staged.
     + All other keys and values are those that correspond to the respective resource's AWS Java API.
     + The two almonds properties are saved as AWS tags, when the resources are created remotely. These two properties are again added to the resources when they are retrieved from AWS, and are critical to state management.
     + References are also defined in terms of :almonds-tags (ex In the above example, the vpc-id contains the value of the :almonds-tags of the vpc). These references are resolved before performing any operations remotely.

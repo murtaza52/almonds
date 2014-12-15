@@ -43,7 +43,7 @@
   (->> (apply pushed-resources-raw args)
        (map sanitize)))
 
-(defn pushed-resources-ids [& args]
+(defn pushed-resources-tags [& args]
   (->> (apply pushed-resources-raw args)
        (map :almonds-tags)))
 
@@ -51,7 +51,7 @@
   (when (seq @index)
     (apply filter-resources (vals @index) args)))
 
-(defn staged-resources-ids [& args]
+(defn staged-resources-tags [& args]
   (->> (apply staged-resources args)
        (map :almonds-tags)))
 
@@ -98,11 +98,12 @@
 (defn inconsistent-resources [coll]
   (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
 
-(defn diff-ids [& args]
-  (->> (data/diff (into #{} (->> (apply staged-resources-ids args)
+(defn diff-tags [& args]
+  (->> (data/diff (into #{} (->> (apply staged-resources-tags args)
                                  (map #(into #{} %))))
-                  (into #{} (->> (apply pushed-resources-ids args)
+                  (into #{} (->> (apply pushed-resources-tags args)
                                  (map #(into #{} %)))))
+       (into-seq)
        (zipmap [:to-create :to-delete :inconsistent])
        (#(update-in % [:inconsistent] inconsistent-resources))))
 
@@ -118,7 +119,7 @@
 
 (comment (compare-resources :s 2))
 
-(comment (diff-ids :network-acl-entry 1))
+(comment (diff-tags :network-acl-entry 1))
 
 (defn sanitize-resources []
   (->> @pushed-state
@@ -137,7 +138,7 @@
 
 (defn stage [coll]
   (doall (map stage-resource coll))
-  (staged-resources-ids))
+  (staged-resources-tags))
 
 (defn unstage [& args]
   (let [to-stage (->> (apply filter-resources (vals @index) args)
@@ -146,10 +147,10 @@
     (reset! index {})
     (stage to-stage)))
 
-(comment (diff-ids))
+(comment (diff-tags))
 
 (defn diff [& args]
-  (let [{:keys [inconsistent to-delete to-create]} (apply diff-ids args)]
+  (let [{:keys [inconsistent to-delete to-create]} (apply diff-tags args)]
     {:to-create (mapcat #(apply staged-resources %) to-create)
      :inconsistent (mapcat #(apply staged-resources %) inconsistent)
      :to-delete (mapcat #(apply pushed-resources %) to-delete)}))

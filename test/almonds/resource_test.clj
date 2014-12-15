@@ -84,21 +84,26 @@
   @pushed-state)
 
 (def my-resources [{:almonds-type :vpc
-                    :almonds-tags [:sandbox :web-tier 1]
+                    :almonds-tags [:sandbox :web-tier]
                     :cidr-block "10.2.0.0/16"
                     :instance-tenancy "default"}
 
-                   {:almonds-type :subnet
-                    :almonds-tags [:s 1]
-                    :cidr-block "10.2.11.0/25"
-                    :availability-zone "us-east-1b"
-                    :vpc-id [1 :web-tier :sandbox]}
+                   {:almonds-type :vpc
+                    :almonds-tags [:sandbox :app-tier]
+                    :cidr-block "10.3.0.0/16"
+                    :instance-tenancy "default"}
 
                    {:almonds-type :subnet
-                    :almonds-tags [:s 2]
-                    :cidr-block "10.2.13.128/25"
+                    :almonds-tags [:sandbox :web-tier :web-server]
+                    :cidr-block "10.2.11.0/25"
                     :availability-zone "us-east-1b"
-                    :vpc-id [1 :web-tier :sandbox]}])
+                    :vpc-id [:sandbox :web-tier]}
+
+                   {:almonds-type :subnet
+                    :almonds-tags [:sandbox :app-tier :app-server]
+                    :cidr-block "10.3.11.0/25"
+                    :availability-zone "us-east-1b"
+                    :vpc-id [:sandbox :app-tier]}])
 
 (def vpc [{:almonds-type :vpc
            :almonds-tags [:sandbox :web-tier 1]
@@ -119,14 +124,14 @@
   (clear-all) ;; :pull :staging :diff
   (unstage)
   ;;(stage my-resources)
-  (staged-resources :network-acl)
+  (staged-resources :app-tier)
 @index
-  (->> (diff :network-acl-entry) :to-create (map create))
-  (push :network-acl-entry 3)
+  (->> (diff :app-tier) :to-create (map create))
+  (push :app-tier)
   (pull)
   (pushed-resources-raw :network-acl)
   (pushed-resources :network-acl-entry)
-  (pushed-resources-ids)
+  (pushed-resources-tags)
   (sanitize-resources)
   (create (first my-resources))
   (delete (first my-resources))

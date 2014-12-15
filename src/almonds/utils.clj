@@ -139,3 +139,8 @@
 
 (defn default-acl-entry? [{:keys [rule-number]}]
   (>= rule-number 32767))
+
+(defn into-seq [coll]
+  (->> coll
+       (map #(if (seq %) (seq %) (rest '())))
+       (map (fn[c] (map #(into [] %) c)))))

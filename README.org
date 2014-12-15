@@ -1,8 +1,8 @@
-** what
+*** what
 
 almonds is a library / tool for dealing with CRUD of resources for a cloud provider. It operates in the same space that of AWS Cloud Formation and Hashicorp's Terraform. It combines the good parts of both, does away with the heartaches of both, and introduces features which are much more developer friendly.
 
-** why
+*** why
 
 I am a developer who used the above two tools for automating the infrastructure of large Fortune 500 company. However these tools have poor design decisions which make working with them furstrating, a sink hole for development hours, and make for unexpected surprises.
 
@@ -18,19 +18,19 @@ As developers the least we need is powerfull and precise tools which can be tame
     6) A thin layer over the AWS SDK to deal with its inconsistensies.
     7) No magic, its a powerful but dumb tool.
 
-** status
+*** status
 
 almonds is a very young tool and not production ready. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources in next few months. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
 
 almonds currently can be used a library in your clojure or JVM project. It will soon add the functionality of running from a command line and read in plain json (however there is no intent to add a DSL).
 
-** usage
+*** usage
 
 It's not published on clojars/maven yet, so please clone the project and include it locally. It will be published once most of the basic EC2 resources are added.
 
-** how
+*** how
 
-*** Defining Resources -
+**** defining resources -
     + Resources are defined as a hash map.
     + Each resource has two mandatory properties -
       :almonds-type :: this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
@@ -67,14 +67,14 @@ Below is an array of resources -
 
 The above defines two vpcs and subnets, with each subnet having the vpc-id of the respective vpc.
 
-*** State Management
+**** state management
     + almonds maintains three atoms in the memory for managing state -
       - index :: this contains all the /staged/ resources. Whenever a resource is staged it is added to the index.
       - pushed-state :: this contains only those resources that are avalaible remotely and have the almonds tags.
       - remote-state :: this contains all the resources that are avalaible remotely - almonds resources or not (this state is helpful during library development for debugging issues)
     + the *index* and the *pushed-state* are the source of truth. They both are used to determine the differential between the resources that are defined and the resources that exist remotely.
 
-*** Staging Resources
+**** staging resources
     + The /almonds.api/ namespace contains the api.
     + When resources are staged they are added to the local state.
     + Execution of the function on the REPL returns the :almonds-tags of all the resources that have been staged.
@@ -85,15 +85,18 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
   (stage my-resources)
 
-  ;; ==>
+
+  ;; ==================>>>>>>>>>>>>>>>>>>>
   ;;
-  ;; ([:subnet :sandbox :app-tier :app-server]
-  ;;  [:subnet :sandbox :web-tier :web-server]
-  ;;  [:vpc :sandbox :app-tier]
-  ;;  [:vpc :sandbox :web-tier])
+  ([:subnet :sandbox :app-tier :app-server]
+   [:subnet :sandbox :web-tier :web-server]
+   [:vpc :sandbox :app-tier]
+   [:vpc :sandbox :web-tier])
+  ;;
+  ;; =====================================
 #+END_SRC
 
-*** diff
+**** diff
     + When the diff is run, it returns a differential between the *index* and the *pushed-state*.
     + It returns a hash-map with three keys -
       - :to-create :: these are the resources which have only been staged are not present remotely.
@@ -150,14 +153,14 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 /Convention: All results of evaluation are presented as -/  *;; ==>*
 
-*** api functions
+**** api functions
     + All api functions are varaidic and can take zero to n number of tags.
     + All api functions have two variations ex - diff and diff-tags
       - diff :: displays the result in terms of the resource
       - diff-ids :: displays the resource in terms of the resource-ids
     + The ids variations are a convenience, and can be utilized when its not necessary to view the full resources.
 
-*** push
+**** push
     - The push function first performs a diff, and then calls the /create/ and /delete/ functions for the respective resources.
     - The resources under
 
@@ -174,13 +177,13 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 #+END_SRC
 
-*** inconsistent
+**** inconsistent
 
 
-*** pull
+**** pull
 
 
-** acknowledgements
+*** acknowledgements
 
 almonds uses the amazing [[https://github.com/mcohen01/amazonica][amazonica]] library to interact with the AWS Java SDK. Its rapid development would not have been possible without it and also thanks to its maintainers for rapidly addressing issues raised during the dveloment of almonds.
 

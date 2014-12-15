@@ -1,17 +1,17 @@
-  - [what](#sec-1)
-  - [why](#sec-2)
-  - [status](#sec-3)
-  - [usage](#sec-4)
-  - [how](#sec-5)
-    - [Defining Resources -](#sec-5-1)
-    - [State Management](#sec-5-2)
-    - [Staging Resources](#sec-5-3)
-    - [diff](#sec-5-4)
-    - [api functions](#sec-5-5)
-    - [push](#sec-5-6)
-    - [inconsistent](#sec-5-7)
-    - [pull](#sec-5-8)
-  - [acknowledgements](#sec-6)
+    - [what](#sec-1)
+    - [why](#sec-2)
+    - [status](#sec-3)
+    - [usage](#sec-4)
+    - [how](#sec-5)
+      - [defining resources -](#sec-5-1)
+      - [state management](#sec-5-2)
+      - [staging resources](#sec-5-3)
+      - [diff](#sec-5-4)
+      - [api functions](#sec-5-5)
+      - [push](#sec-5-6)
+      - [inconsistent](#sec-5-7)
+      - [pull](#sec-5-8)
+    - [acknowledgements](#sec-6)
 
 # what<a id="sec-1" name="sec-1"></a>
 
@@ -45,7 +45,7 @@ It's not published on clojars/maven yet, so please clone the project and include
 
 # how<a id="sec-5" name="sec-5"></a>
 
-## Defining Resources -<a id="sec-5-1" name="sec-5-1"></a>
+## defining resources -<a id="sec-5-1" name="sec-5-1"></a>
 
 -   Resources are defined as a hash map.
 -   Each resource has two mandatory properties -
@@ -85,7 +85,7 @@ Below is an array of resources -
 
 The above defines two vpcs and subnets, with each subnet having the vpc-id of the respective vpc.
 
-## State Management<a id="sec-5-2" name="sec-5-2"></a>
+## state management<a id="sec-5-2" name="sec-5-2"></a>
 
 -   almonds maintains three atoms in the memory for managing state -
     -   **index:** this contains all the *staged* resources. Whenever a resource is staged it is added to the index.
@@ -93,7 +93,7 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
     -   **remote-state:** this contains all the resources that are avalaible remotely - almonds resources or not (this state is helpful during library development for debugging issues)
 -   the **index** and the **pushed-state** are the source of truth. They both are used to determine the differential between the resources that are defined and the resources that exist remotely.
 
-## Staging Resources<a id="sec-5-3" name="sec-5-3"></a>
+## staging resources<a id="sec-5-3" name="sec-5-3"></a>
 
 -   The *almonds.api* namespace contains the api.
 -   When resources are staged they are added to the local state.
@@ -105,12 +105,15 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 (stage my-resources)
 
-;; ==>
+
+;; ==================>>>>>>>>>>>>>>>>>>>
 ;;
-;; ([:subnet :sandbox :app-tier :app-server]
-;;  [:subnet :sandbox :web-tier :web-server]
-;;  [:vpc :sandbox :app-tier]
-;;  [:vpc :sandbox :web-tier])
+([:subnet :sandbox :app-tier :app-server]
+ [:subnet :sandbox :web-tier :web-server]
+ [:vpc :sandbox :app-tier]
+ [:vpc :sandbox :web-tier])
+;;
+;; =====================================
 ```
 
 ## diff<a id="sec-5-4" name="sec-5-4"></a>

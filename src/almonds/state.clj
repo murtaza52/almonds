@@ -1,6 +1,6 @@
 (ns almonds.state)
 
-(def index (atom {}))
+(def staging-state (atom {}))
 (def pushed-state (atom {}))
 (def remote-state (atom {}))
 (def resource-types (atom []))

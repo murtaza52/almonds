@@ -144,3 +144,10 @@
   (->> coll
        (map #(if (seq %) (seq %) (rest '())))
        (map (fn[c] (map #(into [] %) c)))))
+
+(defn is-dependent? [id m]
+  (->> (vals m)
+       (into #{})
+       ((fn[s] (if (s id) true false)))))
+
+(comment (is-dependent? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"}))

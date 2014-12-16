@@ -90,7 +90,7 @@
 
                    {:almonds-type :vpc
                     :almonds-tags [:sandbox :app-tier]
-                    :cidr-block "10.3.0.0/16"
+                    :cidr-block "10.4.0.0/16"
                     :instance-tenancy "default"}
 
                    {:almonds-type :subnet
@@ -101,7 +101,7 @@
 
                    {:almonds-type :subnet
                     :almonds-tags [:sandbox :app-tier :app-server]
-                    :cidr-block "10.3.11.0/25"
+                    :cidr-block "10.4.0.0/26"
                     :availability-zone "us-east-1b"
                     :vpc-id [:sandbox :app-tier]}])
 
@@ -125,9 +125,8 @@
   (unstage)
   ;;(stage my-resources)
   (staged-resources :app-tier)
-@index
-  (->> (diff :app-tier) :to-create (map create))
-  (push :app-tier)
+  (diff)
+  (push)
   (pull)
   (pushed-resources-raw :network-acl)
   (pushed-resources :network-acl-entry)
@@ -135,14 +134,17 @@
   (sanitize-resources)
   (create (first my-resources))
   (delete (first my-resources))
-  (-> (compare-resources 2 :s) :pushed first (delete))
+  (-> (compare-resources :app-tier :subnet) :pushed first (delete))
   (stage my-resources)
   (stage vpc)
   (stage acls)
   (stage acl-entries)
-  (compare-resources 2)
-
+  (compare-resources :app-tier :subnet)
+  (recreate-inconsistent :app-tier :subnet)
+  (recreate :app-tier)
   (aws-id #{1 :web-tier :sandbox :vpc})
+
+  (delete-resources :web-tier)
   ;; compare ;; compare-inconsistent
 
   ;; pay for sevenolives
@@ -151,6 +153,9 @@
   (stage acls)
   (stage acl-entries)
 
+  ( / (* 200 5 26 ) 40)
+
+  ()
 )
 
 ;; (aws-id (pushed-resources 1))

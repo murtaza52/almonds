@@ -7,7 +7,7 @@
             [clojure.set :refer [difference intersection]]))
 
 (defn clear-all []
-  (doseq [a [index pushed-state remote-state]]
+  (doseq [a [staging-state pushed-state remote-state]]
     (reset! a {})))
 
 (defn clear-pull-state []
@@ -48,8 +48,8 @@
        (map :almonds-tags)))
 
 (defn staged-resources [& args]
-  (when (seq @index)
-    (apply filter-resources (vals @index) args)))
+  (when (seq @staging-state)
+    (apply filter-resources (vals @staging-state) args)))
 
 (defn staged-resources-tags [& args]
   (->> (apply staged-resources args)
@@ -132,7 +132,7 @@
         (add-type-to-tags)
         (pre-staging)
         (#(hash-map (:almonds-tags %) %))
-        (#(swap! index merge %)))))
+        (#(swap! staging-state merge %)))))
 
 (comment (stage-resource {:almonds-tags [:a :b] :almonds-type :customer-gateway}))
 
@@ -141,11 +141,15 @@
   (staged-resources-tags))
 
 (defn unstage [& args]
-  (let [to-stage (->> (apply filter-resources (vals @index) args)
+  (let [to-unstage (apply filter-resources (vals @staging-state) args)
+        to-stage (->> to-unstage
                       (into #{})
-                      (difference (into #{} (vals @index))))]
-    (reset! index {})
-    (stage to-stage)))
+                      (difference (into #{} (vals @staging-state))))]
+    (reset! staging-state {})
+    (stage to-stage)
+    to-unstage))
+
+(apply filter-resources (vals @staging-state) [:sandbox :app-tier])
 
 (comment (diff-tags))
 
@@ -160,25 +164,51 @@
 
 (comment (diff))
 
-(defn delete-resources [coll]
+(defn delete-from-coll [coll]
   (doseq [r-type (reverse @resource-types)
           v (filter-resources coll r-type)]
     (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
     (delete v)))
 
-(defn create-resources [coll]
+(defn create-from-coll [coll]
   (doseq [r-type @resource-types
           v (filter-resources coll r-type)]
     (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
+    (println (print-str v))
     (create v)))
+
+(defn delete-resources [& args]
+  (delete-from-coll (apply pushed-resources args))
+  (pull))
 
 (defn push-without-pull [& args]
   (let [{:keys [to-create to-delete]} (apply diff args)]
-    (delete-resources to-delete)
-    (create-resources to-create)))
+    (delete-from-coll to-delete)
+    (create-from-coll to-create)))
 
 (defn push [& args]
   (apply push-without-pull args)
   (pull))
 
 (comment (stage :c [{:almonds-type :customer-gateway :almonds-tags "b" :a 2}]))
+
+(defn recreate [& args]
+  (let [unstaged (apply unstage args)]
+    (apply push args)
+    (stage unstaged)
+    (apply push args)))
+
+(defn recreate-inconsistent [& args]
+  (let [inconsistent (:inconsistent (apply diff-tags args))
+        unstaged (mapcat #(apply unstage %) inconsistent)]
+    (doall (map #(apply push-without-pull %) inconsistent))
+    (pull)
+    (stage unstaged)
+    (doall (map #(apply push-without-pull %) inconsistent))
+    (pull)))
+
+(defn find-deps [id]
+  (filter #(is-dependent? id %) (pushed-resources-raw)))
+
+(defn delete-deps [id]
+  (delete-from-coll (find-deps id)))

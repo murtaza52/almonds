@@ -36,7 +36,8 @@
               :describe-fn aws-ec2/describe-subnets
               :aws-id-key :subnet-id
               :delete-fn aws-ec2/delete-subnet
-              :dependents-fn (constantly '())})
+              :dependents-fn (constantly '())
+              :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
 
 (defresource {:resource-type :network-acl
               :create-map #(hash-map :vpc-id (aws-id (:vpc-id %)))

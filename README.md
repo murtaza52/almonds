@@ -15,27 +15,25 @@
 
 # what<a id="sec-1" name="sec-1"></a>
 
-almonds is a library / tool for dealing with CRUD of resources for a cloud provider. It operates in the same space that of AWS Cloud Formation and Hashicorp's Terraform. It combines the good parts of both, does away with the heartaches of both, and introduces features which are much more developer friendly.
+*almonds* is a library for realizing the ideal of infrastructure as code. It operates in the same space that of AWS's Cloud Formation and Hashicorp's Terraform. It takes inspiration from both, tries to address their shortcomings, and introduces features which are developer friendly.
 
 # why<a id="sec-2" name="sec-2"></a>
 
-I am a developer who used the above two tools for automating the infrastructure of large Fortune 500 company. However these tools have poor design decisions which make working with them furstrating, a sink hole for development hours, and make for unexpected surprises.
+I am a developer who used the above two tools for automating the infrastructure of a large Fortune 500 company. However these tools have poor designs, which makes working with them frustrating, a sink hole for development hours, and their unpredictable behavour springs up nasty surprises.
 
-The current crop of toolings are like an hammer, and that also a buggy hammer if there ever was one ! Its very painfull to use these tools, and they make precise control and composition impossible.
-
-As developers the least we need is powerfull and precise tools which can be tamed and moulded as we want and no more - more in the line of emacs and vim. almonds is an attempt to provide such a tool. almonds tries to provide a set of building blocks, fine grained operations, which can then be composed to form higher lavel of abstractions. It is an attempt to provide the same level of power and flexibility that we have while working with other types of apps to have with infrastructure elements.
+As developers we need powerful and precise tools which can be tamed and moulded as we want and no more - more in the mould of emacs and vim. *almonds* is an attempt to provide such a tool. *almonds* tries to provide a set of building blocks, fine grained functions, which can then be composed to form higher level of abstractions.
 
 -   Set of primitives to deal with infrastructure resources.
 -   Fine grained control over application of these primitives to resources.
 -   A saner approach to state management.
 -   Concept of uniquenes for resources and ability to group them.
 -   API which can be used for composing operations as needed, or can be used to build applications over it.
--   A thin layer over the AWS SDK to deal with its inconsistensies.
+-   A thin layer over the AWS SDK to deal with its inconsistencies.
 -   No magic, its a powerful but dumb tool.
 
 # status<a id="sec-3" name="sec-3"></a>
 
-almonds is a very young tool and not production ready. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources in next few months. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
+*almonds* is a very young tool and you will encounter bugs. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources in next few months. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
 
 almonds currently can be used a library in your clojure or JVM project. It will soon add the functionality of running from a command line and read in plain json (however there is no intent to add a DSL).
 

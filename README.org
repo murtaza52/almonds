@@ -18,7 +18,7 @@ Moreover there is space for a tool which provides the following -
 
 /almonds/ is a very young tool and you will encounter bugs. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources in next few months. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
 
-almonds currently can be used a library in your clojure or JVM project. It will soon add the functionality of running from a command line and read in plain json (however there is no intent to add a DSL).
+It can be used as a library in your clojure or JVM project. In near future you would also be able to run it from the command line with json as input. However the json will be plain vanilla json and no DSL will be added. The json can be generated using your preferred language.
 
 *** usage
 

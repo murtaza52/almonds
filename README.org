@@ -23,12 +23,12 @@ It can be used as a library in your clojure or JVM project. In near future you w
 *** usage
 
 **** Releases
-    1. The library is hosted on [[https://clojars.org/almonds][clojars]].
-    2. To use it as a [[http://github.com/technomancy/leiningen/][leiningen]] dependency -       
+    - The library is hosted on [[https://clojars.org/almonds][clojars]].
+    - To use it as a [[http://github.com/technomancy/leiningen/][leiningen]] dependency -       
 #+BEGIN_SRC clojure
 [almonds "0.2.2"]
 #+END_SRC
-    3. To use it as a [[http://maven.apache.org/][maven]] dependency -
+    - To use it as a [[http://maven.apache.org/][maven]] dependency -
 #+BEGIN_SRC clojure
 <dependency>
   <groupId>almonds</groupId>

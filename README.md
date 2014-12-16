@@ -42,14 +42,14 @@ It can be used as a library in your clojure or JVM project. In near future you w
 
 ## Releases<a id="sec-4-1" name="sec-4-1"></a>
 
-1.  The library is hosted on [clojars](https://clojars.org/almonds).
-2.  To use it as a [leiningen](http://github.com/technomancy/leiningen/) dependency -
+-   The library is hosted on [clojars](https://clojars.org/almonds).
+-   To use it as a [leiningen](http://github.com/technomancy/leiningen/) dependency -
 
 ```clojure
 [almonds "0.2.2"]
 ```
 
-1.  To use it as a [maven](http://maven.apache.org/) dependency -
+-   To use it as a [maven](http://maven.apache.org/) dependency -
 
 ```clojure
 <dependency>

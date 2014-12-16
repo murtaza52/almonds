@@ -1,5 +1,5 @@
 (ns almonds.resource-test
-  (:require [midje.sweet :refer [facts fact]]
+  (:require ;;[midje.sweet :refer [facts fact]]
             [almonds.api :refer :all]
             [amazonica.aws.ec2 :as aws-ec2]
             [clojure.set :as set :refer [difference]]

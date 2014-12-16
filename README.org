@@ -22,7 +22,14 @@ It can be used as a library in your clojure or JVM project. In near future you w
 
 *** usage
 
-It's not published on clojars/maven yet, so please clone the project and include it locally. It will be published once most of the basic EC2 resources are added.
+    1. On a clojure project include the lib as a dependency *[almonds "0.2.2"]*
+    2. Set the credentials to connect to aws - 
+
+#+BEGIN_SRC clojure
+  (require [almonds.core :refer [set-aws-credentials]])
+  
+  (set-aws-credentials "aws-access-key" "aws-secret" "https://ec2.amazonaws.com")
+#+END_SRC
 
 *** how
 
@@ -74,7 +81,7 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
     + The /almonds.api/ namespace contains the api.
     + When resources are staged they are added to the local state.
     + Execution of the function on the REPL returns the :almonds-tags of all the resources that have been staged.
-    + The :almonds-type was also aded to
+    + The :almonds-type is added to the :almonds-tags vector of each resource.
 
 #+BEGIN_SRC clojure
   (require [almonds.api :all :refer])
@@ -232,7 +239,7 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
        - (delete-resources :app-tier) (stage app-tier) (push) :: this will first delete the :app-tier resources, then stage them and then create them.
        - (unstage :app-tier) (push) (stage app-tier) (push) :: this will unstage the resources (remove them from staging-state), then push deletes them, then stage the resources, and then pull creates them.
      + The higher level functions are a combination of the more granular functions, however the granular ones can be used as needed.
-
+       
 *** acknowledgements
 
 almonds uses the amazing [[https://github.com/mcohen01/amazonica][amazonica]] library to interact with the AWS Java SDK. Its rapid development would not have been possible without it and also thanks to its maintainers for rapidly addressing issues raised during the dveloment of almonds.

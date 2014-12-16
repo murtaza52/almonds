@@ -1,4 +1,4 @@
-(defproject almonds "0.2.1"
+(defproject almonds "0.2.2"
   :description "A library for infrastructure automation"
   :license {:name "Eclipse Public License - v 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"

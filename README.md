@@ -38,7 +38,14 @@ It can be used as a library in your clojure or JVM project. In near future you w
 
 # usage<a id="sec-4" name="sec-4"></a>
 
-It's not published on clojars/maven yet, so please clone the project and include it locally. It will be published once most of the basic EC2 resources are added.
+1.  On a clojure project include the lib as a dependency **[almonds "0.2.2"]**
+2.  Set the credentials to connect to aws -
+
+```clojure
+(require [almonds.core :refer [set-aws-credentials]])
+
+(set-aws-credentials "aws-access-key" "aws-secret" "https://ec2.amazonaws.com")
+```
 
 # how<a id="sec-5" name="sec-5"></a>
 
@@ -93,7 +100,7 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 -   The *almonds.api* namespace contains the api.
 -   When resources are staged they are added to the local state.
 -   Execution of the function on the REPL returns the :almonds-tags of all the resources that have been staged.
--   The :almonds-type was also aded to
+-   The :almonds-type is added to the :almonds-tags vector of each resource.
 
 ```clojure
 (require [almonds.api :all :refer])

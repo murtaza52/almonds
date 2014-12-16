@@ -1,11 +1,11 @@
 (ns almonds.resource-test
-  (:require ;;[midje.sweet :refer [facts fact]]
-            [almonds.api :refer :all]
+  (:require [almonds.api :refer :all]
             [amazonica.aws.ec2 :as aws-ec2]
             [clojure.set :as set :refer [difference]]
             [schema.core :as schema]
             [almonds.contract :refer :all]
-            [almonds.state :refer :all]))
+            [almonds.state :refer :all]
+            [almonds.core :refer [set-aws-credentials]]))
 
 ;; (comment
 
@@ -107,7 +107,7 @@
 
 (def vpc [{:almonds-type :vpc
            :almonds-tags [:sandbox :web-tier 1]
-           :cidr-block "10.2.0.0/16"
+           :cidr-block "10.5.0.0/16"
            :instance-tenancy "default"}])
 
 (def acls [{:almonds-type :network-acl :almonds-tags [:first] :vpc-id [:sandbox :web-tier 1]}])
@@ -122,11 +122,11 @@
                    :network-acl-id [:first]}])
 (comment
   (clear-all) ;; :pull :staging :diff
-  (unstage)
+  (unstage :web-tier)
   ;;(stage my-resources)
   (staged-resources :app-tier)
   (diff)
-  (push)
+  (push-only-create)
   (pull)
   (pushed-resources-raw :network-acl)
   (pushed-resources :network-acl-entry)
@@ -135,8 +135,8 @@
   (create (first my-resources))
   (delete (first my-resources))
   (-> (compare-resources :app-tier :subnet) :pushed first (delete))
-  (stage my-resources)
   (stage vpc)
+  (stage my-resources)
   (stage acls)
   (stage acl-entries)
   (compare-resources :app-tier :subnet)

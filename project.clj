@@ -1,5 +1,8 @@
-(defproject almonds "0.2.0"
+(defproject almonds "0.2.1"
   :description "A library for infrastructure automation"
+  :license {:name "Eclipse Public License - v 1.0"
+            :url "http://www.eclipse.org/legal/epl-v10.html"
+            :distribution :repo}
   :url "https://github.com/murtaza52/almonds"
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [amazonica "0.3.4"]

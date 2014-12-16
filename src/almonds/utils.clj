@@ -2,7 +2,7 @@
   (:require [clojure.set :refer [difference intersection]]
             [clojure.pprint :refer [pprint]]
             [cheshire.core :refer [generate-string]]
-            [camel-snake-kebab.core :as kebab :refer [->CamelCase]]
+            [camel-snake-kebab.core :as kebab]
             [amazonica.aws.ec2 :as aws-ec2]
             [almonds.contract :refer :all]
             [schema.core :as schema]
@@ -64,8 +64,8 @@
   (fn [resource]
     (every? true? ((apply juxt fns) resource))))
 
-(defn to-json [m]
-  (generate-string m {:key-fn (comp name ->CamelCase)}))
+;; (defn to-json [m]
+;;   (generate-string m {:key-fn (comp name ->CamelCase)}))
 
 (defn name-to-id [name] (kebab/->kebab-case-string name))
 
@@ -77,7 +77,7 @@
        (map kebab/->Camel_Snake_Case_String)
        (clojure.string/join " : ")))
 
-(tags->name [:a :b-c 2])
+(comment (tags->name [:a :b-c 2]))
 
 (defn almonds-tags [{:keys [almonds-tags almonds-type tags] :or {tags {}}}]
   (merge {:almonds-tags (print-str almonds-tags)

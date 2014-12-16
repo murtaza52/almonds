@@ -71,6 +71,7 @@
                       {:value "[:sandbox-stack :web-tier :sync-box 1]", :key ":almonds-tags"}
                       {:value ":customer-gateway", :key ":almonds-type"}]}))
 
+
 (defn aws-id [almonds-tags]
   (let [resources (apply pushed-resources-raw almonds-tags)]
     (when-not (seq resources) (throw+ {:operation 'aws-id
@@ -180,6 +181,16 @@
 (defn delete-resources [& args]
   (delete-from-coll (apply pushed-resources args))
   (pull))
+
+(defn push-only-create [& args]
+  (let [{:keys [to-create]} (apply diff args)]
+    (create-from-coll to-create)
+    (pull)))
+
+(defn push-only-delete [& args]
+  (let [{:keys [to-delete]} (apply diff args)]
+    (delete-from-coll to-delete)
+    (pull)))
 
 (defn push-without-pull [& args]
   (let [{:keys [to-create to-delete]} (apply diff args)]

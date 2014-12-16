@@ -1,7 +1,7 @@
 (ns almonds.core
-  (:require [environ.core :refer [env]]
-            [amazonica.core :as aws-core :refer [defcredential]]
+  (:require [amazonica.core :as aws-core :refer [defcredential]]
             [almonds.resources]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; credentials ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defcredential (env :aws-access-key) (env :aws-secret) "https://ec2.amazonaws.com")
+(defn set-aws-credentials [aws-access-key aws-secret aws-url]
+  (defcredential aws-access-key aws-secret aws-url))

@@ -22,8 +22,24 @@ It can be used as a library in your clojure or JVM project. In near future you w
 
 *** usage
 
-    1. On a clojure project include the lib as a dependency *[almonds "0.2.2"]*
-    2. Set the credentials to connect to aws - 
+**** Releases
+    1. The library is hosted on [[https://clojars.org/almonds][clojars]].
+    2. To use it as a [[http://github.com/technomancy/leiningen/][leiningen]] dependency -       
+#+BEGIN_SRC clojure
+[almonds "0.2.2"]
+#+END_SRC
+    3. To use it as a [[http://maven.apache.org/][maven]] dependency -
+#+BEGIN_SRC clojure
+<dependency>
+  <groupId>almonds</groupId>
+  <artifactId>almonds</artifactId>
+  <version>0.2.2</version>
+</dependency>
+#+END_SRC
+
+**** Credentials
+      
+In your code set the aws credentials - 
 
 #+BEGIN_SRC clojure
   (require [almonds.core :refer [set-aws-credentials]])

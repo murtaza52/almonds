@@ -10,13 +10,13 @@ The current crop of toolings are like an hammer, and that also a buggy hammer if
 
 As developers the least we need is powerfull and precise tools which can be tamed and moulded as we want and no more - more in the line of emacs and vim. almonds is an attempt to provide such a tool. almonds tries to provide a set of building blocks, fine grained operations, which can then be composed to form higher lavel of abstractions. It is an attempt to provide the same level of power and flexibility that we have while working with other types of apps to have with infrastructure elements.
 
-    1) Set of primitives to deal with infrastructure resources.
-    2) Fine grained control over application of these primitives to resources.
-    3) A saner approach to state management.
-    4) Concept of uniquenes for resources and ability to group them.
-    5) API which can be used for composing operations as needed, or can be used to build applications over it.
-    6) A thin layer over the AWS SDK to deal with its inconsistensies.
-    7) No magic, its a powerful but dumb tool.
+    * Set of primitives to deal with infrastructure resources.
+    * Fine grained control over application of these primitives to resources.
+    * A saner approach to state management.
+    * Concept of uniquenes for resources and ability to group them.
+    * API which can be used for composing operations as needed, or can be used to build applications over it.
+    * A thin layer over the AWS SDK to deal with its inconsistensies.
+    * No magic, its a powerful but dumb tool.
 
 *** status
 
@@ -30,7 +30,7 @@ It's not published on clojars/maven yet, so please clone the project and include
 
 *** how
 
-**** defining resources -
+**** defining resources
     + Resources are defined as a hash map.
     + Each resource has two mandatory properties -
       - :almonds-type :: this key denotes the type of the resource and has to be from one of the types defined by almonds. The CRUD behaviour of each resource is dependent opon this key.
@@ -69,10 +69,10 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 **** state management
     + almonds maintains three atoms in the memory for managing state -
-      - index :: this contains all the /staged/ resources. Whenever a resource is staged it is added to the index.
+      - staging-state :: this contains all the /staged/ resources. Whenever a resource is staged it is added to the staging-state.
       - pushed-state :: this contains only those resources that are avalaible remotely and have the almonds tags.
       - remote-state :: this contains all the resources that are avalaible remotely - almonds resources or not (this state is helpful during library development for debugging issues)
-    + the *index* and the *pushed-state* are the source of truth. They both are used to determine the differential between the resources that are defined and the resources that exist remotely.
+    + the *staging-state* and the *pushed-state* are the source of truth. They both are used to determine the differential between the resources that are defined and the resources that exist remotely.
 
 **** staging resources
     + The /almonds.api/ namespace contains the api.
@@ -97,7 +97,7 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 #+END_SRC
 
 **** diff
-    + When the diff is run, it returns a differential between the *index* and the *pushed-state*.
+    + When the diff is run, it returns a differential between the *staging-state* and the *pushed-state*.
     + It returns a hash-map with three keys -
       - :to-create :: these are the resources which have only been staged are not present remotely.
       - :to-delete :: these are the resources which are not staged but are present remotely /(Remember the state is transient, and if you staged the resourced from an REPL, and then created them, they will not be present in the staging state the next time you restart your REPL)/
@@ -162,7 +162,9 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 **** push
     - The push function first performs a diff, and then calls the /create/ and /delete/ functions for the respective resources.
-    - The resources under
+    - The /push/ function like other in the api can also be invoked with specific
+    - The resources under the :inconsistent key are not affected.
+    - The /pull/ function is called after the respective resources have been added/deleted.
 
 #+BEGIN_SRC clojure
   (push :app-tier)
@@ -177,11 +179,63 @@ The above defines two vpcs and subnets, with each subnet having the vpc-id of th
 
 #+END_SRC
 
-**** inconsistent
+**** modifying resources
+     - When an existing resource is changed locally or remotely it will appear under the :inconsistent key.
+     - In the example below the :cidr-block of both the vpc and subnet have been changed.
+     - The /diff/ shows both of these under the :inconsistent key.
+     - Below they are recreated using the /recreate/ function.
 
+#+BEGIN_SRC clojure
+  (def app-tier [{:almonds-type :vpc
+                  :almonds-tags [:sandbox :app-tier]
+                  :cidr-block "10.4.0.0/16"
+                  :instance-tenancy "default"}
 
-**** pull
+                 {:almonds-type :subnet
+                  :almonds-tags [:sandbox :app-tier :app-server]
+                  :cidr-block "10.4.0.0/26"
+                  :availability-zone "us-east-1b"
+                  :vpc-id [:sandbox :app-tier]}])
 
+  (stage app-tier)
+
+  (diff)
+
+  ;; ====================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  ;;
+  {:to-create (),
+   :inconsistent
+   ({:almonds-tags [:subnet :sandbox :app-tier :app-server],
+     :almonds-type :subnet,
+     :availability-zone "us-east-1b",
+     :vpc-id [:vpc :sandbox :app-tier],
+     :cidr-block "10.4.0.0/26"}
+    {:almonds-tags [:vpc :sandbox :app-tier], :almonds-type :vpc, :cidr-block "10.4.0.0/16", :instance-tenancy "default"}),
+   :to-delete ()}
+  ;;
+  ;; =================================================
+
+  (recreate :app-tier)
+
+  ;; ====================>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+  ;;
+  ;; Deleting :subnet with :almonds-tags [:subnet :sandbox :app-tier :app-server]
+  ;; Deleting :vpc with :almonds-tags [:vpc :sandbox :app-tier]
+  ;; Creating :vpc with :almonds-tags [:vpc :sandbox :app-tier]
+  ;; {:almonds-tags [:vpc :sandbox :app-tier], :almonds-type :vpc, :cidr-block 10.4.0.0/16, :instance-tenancy default}
+  ;; Creating :subnet with :almonds-tags [:subnet :sandbox :app-tier :app-server]
+  ;; {:almonds-tags [:subnet :sandbox :app-tier :app-server], :almonds-type :subnet, :availability-zone us-east-1b, :vpc-id [:vpc :sandbox :app-tier], :cidr-block
+  ;;
+  ;; =================================================
+#+END_SRC
+
+**** recreating resources
+     + There are four different ways in which the above could have been achieved
+       - (recreate :app-tier) :: calling the function without the tag would have recreated all the resources.
+       - (recreate-inconsistent) :: this will run the diff first and the recreate /all/ resources that are inconsistent. If a tag is used then, then a diff will be run with the tag, thus limiting which inconsistent resources are recreated.
+       - (delete-resources :app-tier) (stage app-tier) (push) :: this will first delete the :app-tier resources, then stage them and then create them.
+       - (unstage :app-tier) (push) (stage app-tier) (push) :: this will unstage the resources (remove them from staging-state), then push deletes them, then stage the resources, and then pull creates them.
+     + The higher level functions are a combination of the more granular functions, however the granular ones can be used as needed.
 
 *** acknowledgements
 

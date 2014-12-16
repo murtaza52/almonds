@@ -4,17 +4,15 @@
 
 *** why
 
-I am a developer who used the above two tools for automating the infrastructure of a large Fortune 500 company. However these tools have poor designs, which makes working with them frustrating, a sink hole for development hours, and their unpredictable behavour springs up nasty surprises.
+The current tools have poor designs, which makes working with them frustrating, they are a sink hole for development hours, and their unpredictable behavour springs up nasty surprises.
 
-As developers we need powerful and precise tools which can be tamed and moulded as we want and no more - more in the mould of emacs and vim. /almonds/ is an attempt to provide such a tool. /almonds/ tries to provide a set of building blocks, fine grained functions, which can then be composed to form higher level of abstractions.
-
-    * Set of primitives to deal with infrastructure resources.
-    * Fine grained control over application of these primitives to resources.
-    * A saner approach to state management.
-    * Concept of uniquenes for resources and ability to group them.
-    * API which can be used for composing operations as needed, or can be used to build applications over it.
-    * A thin layer over the AWS SDK to deal with its inconsistencies.
-    * No magic, its a powerful but dumb tool.
+Moreover there is space for a tool which provides the following -
+   - fine grained operations that can be applied to resources
+   - extension points for introducing new resources (can be provider independent)
+   - ability to specify identity of each resource
+   - precise way of grouping and excluding resources for applying operations
+   - a stateless approach to state management
+   - no magic, no framework, only a small dumb library
 
 *** status
 

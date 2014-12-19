@@ -13,5 +13,4 @@
                  [camel-snake-kebab "0.2.4"]
                  [org.clojure/data.json "0.2.5"]
                  [environ "1.0.0"]]
-  :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.4"]
-                                  [midje "1.6.3"]]}})
+  :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.4"]]}})

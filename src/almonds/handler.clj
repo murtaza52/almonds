@@ -3,7 +3,7 @@
            [slingshot.slingshot :refer [throw+]]
            [dire.core :refer [with-handler! with-wrap-hook!]]))
 
-(defn log-ec2-calls [] true)
+(def log-ec2-calls (atom false))
 
 (def ec2-calls [#'accept-vpc-peering-connection 
                 #'allocate-address
@@ -174,7 +174,7 @@
   `(do
      (with-wrap-hook! ~handler
        (fn [result# args#]
-         (when (log-ec2-calls)
+         (when @log-ec2-calls
            (do (println (str "Calling " ~handler " with input : " (print-str args#)))
                (println (str "The above call returned : " (print-str result#)))))))))
 

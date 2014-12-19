@@ -19,7 +19,7 @@
   (let [retrieved (->> @resource-types
                     (mapcat #(retrieve-all {:almonds-type %}))
                     (reset! remote-state))]
-    (reset-first-pull-taken)
+    (set-first-pull-taken)
     retrieved))
 
 (defn filter-resources [coll & args]

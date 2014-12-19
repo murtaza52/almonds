@@ -8,4 +8,5 @@
 (def first-pull-taken? (atom false))
 
 (def reset-resource-types #(reset! resource-types []))
-(def reset-first-pull-taken #(reset! first-pull-taken? false))
+
+(def set-first-pull-taken #(reset! first-pull-taken? true))

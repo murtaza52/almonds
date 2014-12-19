@@ -6,3 +6,6 @@
 (def resource-types (atom []))
 
 (def first-pull-taken? (atom false))
+
+(def reset-resource-types #(reset! resource-types []))
+(def reset-first-pull-taken #(reset! first-pull-taken? false))

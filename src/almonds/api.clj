@@ -8,18 +8,19 @@
 
 (defn clear-all []
   (reset! first-pull-taken? false)
-  (doseq [a [staging-state pushed-state remote-state]]
-    (reset! a {})))
+  (doseq [state [staging-state pushed-state remote-state]]
+    (reset! state {})))
 
 (defn clear-pull-state []
   (reset! remote-state {})
   (reset! pushed-state {}))
 
 (defn pull-remote-state []
-  (reset! first-pull-taken? true)
-  (->> @resource-types
-    (mapcat #(retrieve-all {:almonds-type %}))
-    (reset! remote-state)))
+  (let [retrieved (->> @resource-types
+                    (mapcat #(retrieve-all {:almonds-type %}))
+                    (reset! remote-state))]
+    (reset-first-pull-taken)
+    retrieved))
 
 (defn filter-resources [coll & args]
   (filter (fn [{:keys [almonds-tags]}]

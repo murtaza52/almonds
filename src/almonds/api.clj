@@ -87,12 +87,14 @@
                                            :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."}))
     (-> resources first :almonds-aws-id)))
 
+(comment (aws-id [:sandbox :app-tier]))
+
 (defn aws-id->almonds-tags [aws-id]
   (let [tags (-> (filter (fn [{:keys [almonds-aws-id]}]
                            (= almonds-aws-id aws-id))
                          (pushed-resources-raw))
-                 first
-                 :almonds-tags)]
+               first
+               :almonds-tags)]
     (if tags tags (throw+ {:operation 'aws-id->almonds-tags
                            :args (print-str aws-id)
                            :msg "Unable to find almonds-tags for the given aws-id."}))))
@@ -128,28 +130,35 @@
 
 (defn sanitize-resources []
   (->> @pushed-state
-       (map ->almond-map)
-       (map sanitize)))
+    (map ->almond-map)
+    (map sanitize)))
 
-(defn stage-resource [resource]
-  (when (validate resource)
-    (-> resource
+(defn stage-resource
+  "Stages he resource and returns the resource from the staging-state."
+  [resource]
+  (letfn [(get-resource [state]
+            (->> state vals (into #{}) ((fn[coll] (coll (add-type-to-tags resource))))))]
+    (when (validate resource)
+      (-> resource
         (add-type-to-tags)
         (pre-staging)
         (#(hash-map (:almonds-tags %) %))
-        (#(swap! staging-state merge %)))))
+        (#(swap! staging-state merge %))
+        get-resource))))
 
 (comment (stage-resource {:almonds-tags [:a :b] :almonds-type :customer-gateway}))
 
 (defn stage [coll]
-  (doall (map stage-resource coll))
-  (staged-resources-tags))
+  (doall (map stage-resource coll)))
+
+(comment (stage [{:almonds-tags [:a :b] :almonds-type :customer-gateway}
+                 {:almonds-tags [:a :c] :almonds-type :customer-gateway}]))
 
 (defn unstage [& args]
   (let [to-unstage (apply filter-resources (vals @staging-state) args)
         to-stage (->> to-unstage
-                      (into #{})
-                      (difference (into #{} (vals @staging-state))))]
+                   (into #{})
+                   (difference (into #{} (vals @staging-state))))]
     (reset! staging-state {})
     (stage to-stage)
     to-unstage))

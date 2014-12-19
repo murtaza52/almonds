@@ -4,9 +4,22 @@
             [almonds.state :refer :all]
             [almonds.contract :refer :all]))
 
+(def empty-seq '(constantly (rest '())))
+
+(def true-fn '(constantly true))
+
 (defmacro defresource
   [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate]
-    :or {pre-staging-fn identity create-tags? true delete-fn false delete-fn-alternate false} }]
+    :or {pre-staging-fn identity
+         create-tags? true
+         delete-fn false
+         delete-fn-alternate false
+         validate-fn true-fn
+         sanitize-ks empty-seq
+         sanitize-fn identity
+         describe-fn empty-seq
+         aws-id-key nil
+         dependents-fn empty-seq}}]
   `(do
      (when-not (coll-contains? ~resource-type @resource-types)
        (swap! resource-types conj ~resource-type))

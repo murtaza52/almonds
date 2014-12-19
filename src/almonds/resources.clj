@@ -39,6 +39,24 @@
               :dependents-fn (constantly '())
               :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
 
+(defn get-entries [{:keys [entries] :as m}]
+  (map #(merge % {:almonds-type :network-acl-entry
+                  :almonds-tags (vec (concat
+                                      (drop-val :network-acl (:almonds-tags m))
+                                      [:network-acl-entry (rule-type (:egress %)) (:rule-number %)]))
+                  :network-acl-id (:almonds-tags m)})
+       entries))
+
+(defn get-associations [{:keys [associations] :as acl}]
+  (map (fn[association]
+         (merge association {:almonds-type :network-acl-association
+                   :almonds-tags (vec (concat
+                                       (drop-val :network-acl (:almonds-tags acl))
+                                       [:network-acl-association (:network-acl-association-id association)]))
+                   :network-acl-id (:almonds-tags acl)
+                   :subnet-id (aws-id->almonds-tags (:subnet-id association))}))
+       associations))
+
 (defresource {:resource-type :network-acl
               :create-map #(hash-map :vpc-id (aws-id (:vpc-id %)))
               :create-fn aws-ec2/create-network-acl
@@ -63,11 +81,8 @@
                                             :egress true,
                                             :cidr-block "0.0.0.0/0"}])
                                 (add-type-to-tags :vpc-id :vpc m))
-              :dependents-fn (fn[m] (->> m :entries (map #(merge % {:almonds-type :network-acl-entry
-                                                                    :almonds-tags (vec (concat
-                                                                                        (drop-val :network-acl (:almonds-tags m))
-                                                                                        [:network-acl-entry (rule-type (:egress %)) (:rule-number %)]))
-                                                                    :network-acl-id (:almonds-tags m)}))))})
+              :dependents-fn (fn[acl]
+                               (concat (get-entries acl) (get-associations acl)))})
 
 (defresource {:resource-type :network-acl-entry
               :create-map (fn[m]
@@ -78,7 +93,6 @@
               :create-fn #(if-not (default-acl-entry? %)
                             (aws-ec2/create-network-acl-entry %)
                             (println "Can not create default acl entry, it is created with the acl."))
-              :validate-fn (constantly true)
               :sanitize-ks []
               :sanitize-fn identity
               :describe-fn (constantly '())
@@ -97,3 +111,22 @@
                                    ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
                                    ((fn[m] (if (:egress m) m (dissoc m :egress)))))
               :create-tags? false})
+
+
+(defresource {:resource-type :network-acl-association
+               :create-map (fn[m]
+                             (-> m
+                               (update-in [:network-acl-id] aws-id)
+                               (assoc :association-id :a)
+                               (dissoc :almonds-type :almonds-tags :subnet-id)))
+               :create-fn aws-ec2/replace-network-acl-association
+               :delete-fn (constantly nil)
+               :pre-staging-fn #(-> %
+                                  ((fn[m]
+                                     (assoc m :almonds-tags (vec (concat
+                                                                  [:network-acl-entry (rule-type (:egress m)) (:rule-number m)]
+                                                                  (drop-val :network-acl (:network-acl-id m)))))))
+                                  ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
+                                  ((fn[m] (if (:egress m) m (dissoc m :egress)))))
+               :create-tags? false})
+

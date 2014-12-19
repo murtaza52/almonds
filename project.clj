@@ -7,7 +7,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [amazonica "0.3.4"]
                  [slingshot "0.10.3"]
-                 [dire "0.5.2"]
+                 [dire "0.5.3"]
                  [prismatic/plumbing "0.3.3"]
                  [prismatic/schema "0.2.6"]
                  [camel-snake-kebab "0.2.4"]

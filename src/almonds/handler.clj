@@ -1,7 +1,9 @@
 (ns almonds.handler
   (require [amazonica.aws.ec2 :refer :all]
            [slingshot.slingshot :refer [throw+]]
-           [dire.core :refer [with-handler!]]))
+           [dire.core :refer [with-handler! with-wrap-hook!]]))
+
+(defn log-ec2-calls [] true)
 
 (def ec2-calls [#'accept-vpc-peering-connection 
                 #'allocate-address
@@ -158,7 +160,7 @@
                 #'terminate-instances
                 #'unassign-private-ip-addresses])
 
-(defmacro api-with-handler [handler]
+(defmacro add-exception-handler [handler]
   `(do
      (with-handler! ~handler
        com.amazonaws.AmazonClientException
@@ -168,6 +170,16 @@
                   :args (print-str args#)
                   :error (print-str e#)})))))
 
-(doseq [calls ec2-calls]
-  (api-with-handler calls))
+(defmacro add-logging-hook [handler]
+  `(do
+     (with-wrap-hook! ~handler
+       (fn [result# args#]
+         (when (log-ec2-calls)
+           (do (println (str "Calling " ~handler " with input : " (print-str args#)))
+               (println (str "The above call returned : " (print-str result#)))))))))
 
+(doseq [calls ec2-calls]
+  (add-exception-handler calls))
+
+(doseq [calls ec2-calls]
+  (add-logging-hook calls))

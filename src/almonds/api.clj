@@ -7,6 +7,7 @@
             [clojure.set :refer [difference intersection]]))
 
 (defn clear-all []
+  (reset! first-pull-taken? false)
   (doseq [a [staging-state pushed-state remote-state]]
     (reset! a {})))
 
@@ -15,9 +16,10 @@
   (reset! pushed-state {}))
 
 (defn pull-remote-state []
+  (reset! first-pull-taken? true)
   (->> @resource-types
-       (mapcat #(retrieve-all {:almonds-type %}))
-       (reset! remote-state)))
+    (mapcat #(retrieve-all {:almonds-type %}))
+    (reset! remote-state)))
 
 (defn filter-resources [coll & args]
   (filter (fn [{:keys [almonds-tags]}]
@@ -26,34 +28,36 @@
           coll))
 
 (comment (filter-resources @pushed-state))
+(comment (filter-resources nil))
 
 (defn pull []
   (->> (pull-remote-state)
-       (filter (has-tag-key? ":almonds-tags"))
-       (filter (has-tag-key? ":almonds-type"))
-       (map ->almond-map)
-       ((fn [coll] (concat coll (mapcat dependents coll))))
-       (reset! pushed-state)))
+    (filter (has-tag-key? ":almonds-tags"))
+    (filter (has-tag-key? ":almonds-type"))
+    (map ->almond-map)
+    ((fn [coll] (concat coll (mapcat dependents coll))))
+    (reset! pushed-state)))
+
+(def take-pull? #(not (or (seq @pushed-state) @first-pull-taken?)))
 
 (defn pushed-resources-raw [& args]
-  (when-not (seq @pushed-state) (pull))
+  (when (take-pull?) (pull))
   (apply filter-resources @pushed-state args))
 
 (defn pushed-resources [& args]
   (->> (apply pushed-resources-raw args)
-       (map sanitize)))
+    (map sanitize)))
 
 (defn pushed-resources-tags [& args]
   (->> (apply pushed-resources-raw args)
-       (map :almonds-tags)))
+    (map :almonds-tags)))
 
 (defn staged-resources [& args]
-  (when (seq @staging-state)
-    (apply filter-resources (vals @staging-state) args)))
+  (apply filter-resources (vals @staging-state) args))
 
 (defn staged-resources-tags [& args]
   (->> (apply staged-resources args)
-       (map :almonds-tags)))
+    (map :almonds-tags)))
 
 (comment (staged-resources))
 
@@ -101,12 +105,12 @@
 
 (defn diff-tags [& args]
   (->> (data/diff (into #{} (->> (apply staged-resources-tags args)
-                                 (map #(into #{} %))))
+                              (map #(into #{} %))))
                   (into #{} (->> (apply pushed-resources-tags args)
-                                 (map #(into #{} %)))))
-       (into-seq)
-       (zipmap [:to-create :to-delete :inconsistent])
-       (#(update-in % [:inconsistent] inconsistent-resources))))
+                              (map #(into #{} %)))))
+    (into-seq)
+    (zipmap [:to-create :to-delete :inconsistent])
+    (#(update-in % [:inconsistent] inconsistent-resources))))
 
 (defn compare-resources [& args]
   (hash-map :staged (apply staged-resources args)

@@ -21,7 +21,7 @@
 
 # why<a id="sec-2" name="sec-2"></a>
 
-There are three problems associated with the current crop of tools - 
+There are few problems associated with the current crop of tools - 
 
 -   State Management 
     -   **Terraform:** this is the Achille's heel of terraform. It maintains state in a file which is its source of truth. This file has to be shared/synced when multiple developers are working simultaneously, and is a pain. The scenario (though unlikely) of the state file being irrecoverable will be disastrous.

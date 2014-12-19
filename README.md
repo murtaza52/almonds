@@ -21,16 +21,21 @@
 
 # why<a id="sec-2" name="sec-2"></a>
 
-The current tools have poor designs, which makes working with them frustrating, they are a sink hole for development hours, and their unpredictable behavour springs up nasty surprises.
+There are three problems associated with the current crop of tools - 
 
-Moreover there is space for a tool which provides the following -
-
--   fine grained operations that can be applied to resources
--   extension points for introducing new resources (can be provider independent)
--   ability to specify identity of each resource
--   precise way of grouping and excluding resources for applying operations
--   a stateless approach to state management
--   no magic, no framework, only a small dumb library
+-   State Management 
+    -   **Terraform:** this is the Achille's heel of terraform. It maintains state in a file which is its source of truth. This file has to be shared/synced when multiple developers are working simultaneously, and is a pain. The scenario (though unlikely) of the state file being irrecoverable will be disastrous.
+    -   **CloudFormation:** cloudformation does a much better job, it maintains identity of each resource, and recreates the state every time it is run. However there are horror stories of its state getting corrupted during failed updates, and the only way out is to call in the AWS support team.
+    -   **Almonds:** almonds borrows cloudformation's way of specifying the identity of resources. However this functionality is explicit and user can choose to set the identity. The state is also always recreated and is explicit to the user, who can inspect both the local state and the remote state. The user can also diff between the local and remote state's (an idea borrowed from terraform), and even compare individual resources between state's.
+-   Unpredictability  
+    -   **Terraform and CloudFormation:** both try to be /"intelligent"/ by calculating the dependencies of resources, and then performing CRUD on them too. This leads to unwanted behaviour and nasty surprises. Example - If the security group of an instance is changed, then both the tools will **also** delete and recreate the instance. A simple update can turn into a nightmare. You never know which operation will succeed and which will fail.
+    -   **Almonds:** almonds is /"dumb"/, it leaves the intelligence to the user. It only performs the specific operation on the specific group of resources that are specified. It will not perform those operations on the dependencies by default, but this can be specified too. All operations are explicit and there are no surprises.
+-   DSL 
+    -   **Terraform and CloudFormation:** both of them provide an external DSL to specify resources. CloudFormation has a minimal one while terraform provides an extensive one. IMHO this is a major mistake, Terraform's DSL is a pain to use, and looking at the DSL it seems they are trying to recreate a programming language, albiet a very clunky one.
+    -   **Almonds:** almonds will not provide an external DSL. Currently it can be used in you JVM projects as a library. It will provide limited command line functionality where the input will be a plain json file. Your favourite programming language can be used to generate the json if needed.
+-   Coarse Grained
+    -   **Terraform and CloudFormation:** both of these are hammers, and your every operation better be a nail. Your context is a file/folder, and all crud operations will be applied on all resources in that context.
+    -   **Almonds:** it provides a very fine grained mechanism to group resources, and allows control over what operations should be run and in what order. Its a library, which provides a set of functions to deal with resources. These functions can now be composed to form new abstractions. This is perhaps the most important differentiator, almonds is a library.
 
 # status<a id="sec-3" name="sec-3"></a>
 
@@ -46,7 +51,7 @@ It can be used as a library in your clojure or JVM project. In near future you w
 -   To use it as a [leiningen](http://github.com/technomancy/leiningen/) dependency -
 
 ```clojure
-[almonds "0.2.2"]
+[almonds "0.2.3"]
 ```
 
 -   To use it as a [maven](http://maven.apache.org/) dependency -
@@ -55,7 +60,7 @@ It can be used as a library in your clojure or JVM project. In near future you w
 <dependency>
   <groupId>almonds</groupId>
   <artifactId>almonds</artifactId>
-  <version>0.2.2</version>
+  <version>0.2.3</version>
 </dependency>
 ```
 

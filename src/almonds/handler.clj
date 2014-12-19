@@ -158,14 +158,6 @@
                 #'terminate-instances
                 #'unassign-private-ip-addresses])
 
-;; (with-handler! #'create-vpc
-;;   com.amazonaws.AmazonServiceException
-;;   (fn [e & args]
-;;     (throw+ {:msg "Exception while making a call to AWS."
-;;              :aws-fn 'create-vpc
-;;              :args (print-str args)
-;;              :error (print-str e)})))
-
 (defmacro api-with-handler [handler]
   `(do
      (with-handler! ~handler
@@ -176,17 +168,6 @@
                   :args (print-str args#)
                   :error (print-str e#)})))))
 
-;;(api-with-handler #'create-vpc)
-
 (doseq [calls ec2-calls]
   (api-with-handler calls))
 
-
-;; (doseq [call ec2-calls]
-;;   (with-handler! call
-;;     com.amazonaws.AmazonServiceException
-;;     (fn [e & args]
-;;       (throw+ {:msg "Exception while making a call to AWS."
-;;                :aws-fn 'call
-;;                :args (print-str args)
-;;                :error (print-str e)}))))

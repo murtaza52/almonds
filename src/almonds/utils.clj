@@ -26,7 +26,6 @@
             (when (= key k)
               (= value v)))
           tags)))
-
 (defn has-tag-key? [k]
   (fn[{:keys [tags]}]
     (some (fn[{:keys [key value]}]
@@ -103,6 +102,7 @@
           coll))
 
 (defn create-tags [resource-id tags]
+  (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags)))
   (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
 
 (defn ->almond-map [m]

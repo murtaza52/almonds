@@ -4,32 +4,15 @@
             [almonds.utils :refer :all]
             [slingshot.slingshot :refer [throw+]]
             [clojure.data :as data]
-            [clojure.set :refer [difference intersection]]))
-
-(defn clear-all []
-  (reset! first-pull-taken? false)
-  (doseq [state [staging-state pushed-state remote-state]]
-    (reset! state {})))
-
-(defn clear-pull-state []
-  (reset! remote-state {})
-  (reset! pushed-state {}))
+            [clojure.set :refer [difference intersection]]
+            [almonds.api-utils :refer :all]))
 
 (defn pull-remote-state []
   (let [retrieved (->> @resource-types
                     (mapcat #(retrieve-all {:almonds-type %}))
-                    (reset! remote-state))]
-    (set-first-pull-taken)
+                    (reset! remote-state-all))]
+    (set-already-retrieved-remote)
     retrieved))
-
-(defn filter-resources [coll & args]
-  (filter (fn [{:keys [almonds-tags]}]
-            (contains-set? (into #{} almonds-tags)
-                           (into #{} args)))
-          coll))
-
-(comment (filter-resources @pushed-state))
-(comment (filter-resources nil))
 
 (defn pull []
   (->> (pull-remote-state)
@@ -37,203 +20,203 @@
     (filter (has-tag-key? ":almonds-type"))
     (map ->almond-map)
     ((fn [coll] (concat coll (mapcat dependents coll))))
-    (reset! pushed-state)))
+    (reset! remote-state)))
 
-(def take-pull? #(not (or (seq @pushed-state) @first-pull-taken?)))
+;;;;;;;;;;;;;; get-functions for filtering remote and local resources ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn pushed-resources-raw [& args]
+(defn get-remote-raw [& args]
   (when (take-pull?) (pull))
-  (apply filter-resources @pushed-state args))
+  (apply filter-resources @remote-state args))
 
-(defn pushed-resources [& args]
-  (->> (apply pushed-resources-raw args)
+(defn get-remote [& args]
+  (->> (apply get-remote-raw args)
     (map sanitize)))
 
-(defn pushed-resources-tags [& args]
-  (->> (apply pushed-resources-raw args)
+(defn get-remote-tags [& args]
+  (->> (apply get-remote-raw args)
     (map :almonds-tags)))
 
-(defn staged-resources [& args]
-  (apply filter-resources (vals @staging-state) args))
+(defn get-local [& args]
+  (apply filter-resources (vals @local-state) args))
 
-(defn staged-resources-tags [& args]
-  (->> (apply staged-resources args)
+(defn get-local-tags [& args]
+  (->> (apply get-local args)
     (map :almonds-tags)))
 
-(comment (staged-resources))
+(defn get-local-resource [resource]
+  (->> (add-type-to-tags resource)
+    :almonds-tags
+    (apply get-local)
+    first))
 
-(comment  (pushed-resources-raw 1)
-
-          (sanitize {:almonds-type :customer-gateway,
-                     :almonds-tags [:sandbox-stack :web-tier :sync-box 1],
-                     :customer-gateway-id "cgw-b2e604db",
-                     :state "available",
-                     :type "ipsec.1",
-                     :ip-address "125.12.14.111",
-                     :bgp-asn "6500",
-                     :tags
-                     [{:value "Sandbox_Stack : Web_Tier : Sync_Box : 1", :key "Name"}
-                      {:value "[:sandbox-stack :web-tier :sync-box 1]", :key ":almonds-tags"}
-                      {:value ":customer-gateway", :key ":almonds-type"}]}))
-
-
-(defn aws-id [almonds-tags]
-  (let [resources (apply pushed-resources-raw almonds-tags)]
-    (when-not (seq resources) (throw+ {:operation 'aws-id
-                                       :args (print-str almonds-tags)
-                                       :msg "Unable to find aws-id for the given almonds-tags."}))
-    (when (< 1 (count resources)) (throw+ {:operation 'aws-id
-                                           :args (print-str almonds-tags)
-                                           :num-of-resources (count resources)
-                                           :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."}))
-    (-> resources first :almonds-aws-id)))
-
-(comment (aws-id [:sandbox :app-tier]))
-
-(defn aws-id->almonds-tags [aws-id]
-  (let [tags (-> (filter (fn [{:keys [almonds-aws-id]}]
-                           (= almonds-aws-id aws-id))
-                         (pushed-resources-raw))
-               first
-               :almonds-tags)]
-    (if tags tags (throw+ {:operation 'aws-id->almonds-tags
-                           :args (print-str aws-id)
-                           :msg "Unable to find almonds-tags for the given aws-id."}))))
-
-(comment (aws-id->almonds-tags "vpc-f3eb7996"))
-
-
-(defn inconsistent-resources [coll]
-  (remove (fn[tags] (= (apply pushed-resources tags) (apply staged-resources tags))) coll))
+;;;;;;;;;;;;;;;;; compare ;;;;;;;;;;;;;;;;;;;;;;
 
 (defn diff-tags [& args]
-  (->> (data/diff (into #{} (->> (apply staged-resources-tags args)
-                              (map #(into #{} %))))
-                  (into #{} (->> (apply pushed-resources-tags args)
-                              (map #(into #{} %)))))
-    (into-seq)
-    (zipmap [:to-create :to-delete :inconsistent])
-    (#(update-in % [:inconsistent] inconsistent-resources))))
+  (letfn [(inconsistent-resources [coll]
+            (remove (fn[tags] (= (apply get-remote tags) (apply get-local tags))) coll))]
+    (->> (data/diff (into #{} (->> (apply get-local-tags args)
+                                (map #(into #{} %))))
+                    (into #{} (->> (apply get-remote-tags args)
+                                (map #(into #{} %)))))
+      (into-seq)
+      (zipmap [:only-in-local :only-on-remote :inconsistent])
+      (#(update-in % [:inconsistent] inconsistent-resources)))))
+
+(defn diff [& args]
+  (let [{:keys [inconsistent only-on-remote only-in-local]} (apply diff-tags args)]
+    {:only-in-local (mapcat #(apply get-local %) only-in-local)
+     :inconsistent (mapcat #(apply get-local %) inconsistent)
+     :only-on-remote (mapcat #(apply get-remote %) only-on-remote)}))
 
 (defn compare-resources [& args]
-  (hash-map :staged (apply staged-resources args)
-            :pushed (apply pushed-resources args)))
+  {:in-local (apply get-local args)
+   :on-remote (apply get-remote args)})
 
 (defn compare-resources-raw [& args]
-  (hash-map :staged (apply staged-resources args)
-            :pushed (apply pushed-resources-raw args)))
+  (hash-map :in-local (apply get-local args)
+            :on-remote (apply get-remote-raw args)))
 
-(comment  (apply pushed-resources [2]))
+;;;;;;;;;;;;;;; get ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(comment (compare-resources :s 2))
+(defn get-inconsistent [& args]
+  (:inconsistent (apply diff args)))
 
-(comment (diff-tags :network-acl-entry 1))
+(defn get-only-remote [& args]
+  (:only-on-remote (apply diff args)))
+
+(defn get-only-local [& args]
+  (:only-in-local (apply diff args)))
+
+;;;;;;;;;;;; functions for manipulating state ;;;;;;;;;;;;;;;;;;;
 
 (defn sanitize-resources []
-  (->> @pushed-state
+  (->> @remote-state
     (map ->almond-map)
     (map sanitize)))
 
-(defn stage-resource
-  "Stages he resource and returns the resource from the staging-state."
+(defn add-resource
+  "Stages the resource and returns the resource from the local-state."
   [resource]
-  (letfn [(get-resource [state]
-            (->> state vals (into #{}) ((fn[coll] (coll (add-type-to-tags resource))))))]
-    (when (validate resource)
-      (-> resource
-        (add-type-to-tags)
-        (pre-staging)
-        (#(hash-map (:almonds-tags %) %))
-        (#(swap! staging-state merge %))
-        get-resource))))
+  (when (validate resource)
+    (-> resource
+      (update-in [:almonds-tags] (fn[tags] (into #{} tags)))
+      (add-type-to-tags)
+      (pre-staging)
+      (#(hash-map (:almonds-tags %) %))
+      (#(swap! local-state merge %)))))
 
-(comment (stage-resource {:almonds-tags [:a :b] :almonds-type :customer-gateway}))
+(defn add [resources]
+  (if (map? resources)
+    (do
+      (add-resource resources)
+      (get-local-resource resources))
+    (do
+      (doall (map add-resource resources))
+      (doall (map get-local-resource resources)))))
 
-(defn stage [coll]
-  (doall (map stage-resource coll)))
-
-(comment (stage [{:almonds-tags [:a :b] :almonds-type :customer-gateway}
-                 {:almonds-tags [:a :c] :almonds-type :customer-gateway}]))
-
-(defn unstage [& args]
-  (let [to-unstage (apply filter-resources (vals @staging-state) args)
-        to-stage (->> to-unstage
+(defn expel [& args]
+  (let [to-expel (apply filter-resources (vals @local-state) args)
+        to-stage (->> to-expel
                    (into #{})
-                   (difference (into #{} (vals @staging-state))))]
-    (reset! staging-state {})
-    (stage to-stage)
-    to-unstage))
+                   (difference (into #{} (vals @local-state))))]
+    (reset! local-state {})
+    (add to-stage)
+    to-expel))
 
-(apply filter-resources (vals @staging-state) [:sandbox :app-tier])
+;;;;;;;;;;;;;;;;; ops ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(comment (diff-tags))
-
-(defn diff [& args]
-  (let [{:keys [inconsistent to-delete to-create]} (apply diff-tags args)]
-    {:to-create (mapcat #(apply staged-resources %) to-create)
-     :inconsistent (mapcat #(apply staged-resources %) inconsistent)
-     :to-delete (mapcat #(apply pushed-resources %) to-delete)}))
-
-(comment (pushed-resources-raw 1)
-         (staged-resources))
-
-(comment (diff))
-
-(defn delete-from-coll [coll]
+(defn- delete-op! [coll]
   (doseq [r-type (reverse @resource-types)
           v (filter-resources coll r-type)]
     (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
     (delete v)))
 
-(defn create-from-coll [coll]
+(defn- create-op! [coll]
   (doseq [r-type @resource-types
           v (filter-resources coll r-type)]
     (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
     (println (print-str v))
     (create v)))
 
-(defn delete-resources [& args]
-  (delete-from-coll (apply pushed-resources args))
-  (pull))
+(defn- recreate-op! [coll]
+  (delete-op! coll)
+  (pull)
+  (create-op! coll))
 
-(defn push-only-create [& args]
-  (let [{:keys [to-create]} (apply diff args)]
-    (create-from-coll to-create)
+;;;;;;;;;;; apply fns ;;;;;;;;;;;;;;;;;;;;;;
+
+(defn sync-only-create [& args]
+  (let [{:keys [only-in-local]} (apply diff args)]
+    (create-op! only-in-local)
     (pull)))
 
-(defn push-only-delete [& args]
-  (let [{:keys [to-delete]} (apply diff args)]
-    (delete-from-coll to-delete)
+(defn sync-only-delete [& args]
+  (let [{:keys [only-on-remote]} (apply diff args)]
+    (delete-op! only-on-remote)
     (pull)))
 
-(defn push-without-pull [& args]
-  (let [{:keys [to-create to-delete]} (apply diff args)]
-    (delete-from-coll to-delete)
-    (create-from-coll to-create)))
+(defn sync-only-inconsistent [& args]
+  (let [{:keys [inconsistent]} (apply diff args)]
+    (recreate-op! inconsistent)
+    (pull)))
 
-(defn push [& args]
-  (apply push-without-pull args)
+(defn sync-without-pull [& args]
+  (let [{:keys [only-in-local only-on-remote inconsistent]} (apply diff args)]
+    (delete-op! only-on-remote)
+    (create-op! only-in-local)
+    (recreate-op! inconsistent)))
+
+(defn sync-resources [& args]
+  (apply sync-without-pull args)
   (pull))
-
-(comment (stage :c [{:almonds-type :customer-gateway :almonds-tags "b" :a 2}]))
 
 (defn recreate [& args]
-  (let [unstaged (apply unstage args)]
-    (apply push args)
-    (stage unstaged)
-    (apply push args)))
+  (->> (apply get-local args)
+    (recreate-op!))
+  (pull))
 
-(defn recreate-inconsistent [& args]
-  (let [inconsistent (:inconsistent (apply diff-tags args))
-        unstaged (mapcat #(apply unstage %) inconsistent)]
-    (doall (map #(apply push-without-pull %) inconsistent))
-    (pull)
-    (stage unstaged)
-    (doall (map #(apply push-without-pull %) inconsistent))
-    (pull)))
+(defn delete-resources [& args]
+  (apply expel args)
+  (apply sync-only-delete args))
 
-(defn find-deps [id]
-  (filter #(is-dependent? id %) (pushed-resources-raw)))
+(defn aws-id [almonds-tags]
+  (let [resources (apply get-remote-raw almonds-tags)]
+    (when-not (seq resources) (throw+ {:operation 'aws-id
+                                       :args (print-str almonds-tags)
+                                       :msg "Unable to find aws-id for the given almonds-tags."}))
+    (when (< 1 (count resources)) (throw+ {:operation 'aws-id
+                                           :args (print-str almonds-tags)
+                                           :num-of-resources (count resources)
+                                           :resources (print-str resources)
+                                           :msg "Duplicate resources found for the given alomonds-tags. Please provide a unique tag."}))
+    (-> resources first :almonds-aws-id)))
 
-(defn delete-deps [id]
-  (delete-from-coll (find-deps id)))
+(defn aws-id->almonds-tags [aws-id]
+  (let [tags (-> (filter (fn [{:keys [almonds-aws-id]}]
+                           (= almonds-aws-id aws-id))
+                         (get-remote-raw))
+               first
+               :almonds-tags)]
+    (if tags tags (throw+ {:operation 'aws-id->almonds-tags
+                           :args (print-str aws-id)
+                           :msg "Unable to find almonds-tags for the given aws-id."}))))
+
+(defn find-deps-aws-id [id]
+  (filter #(is-dependent? id %) (get-remote-raw)))
+
+(defn find-deps [m]
+  (when-let [almonds-tags (:almonds-tags (get-local-resource m))]
+    (filter #(is-dependent? almonds-tags %) (get-local))))
+
+;; (defn find-all-deps 
+;;   ([m]
+;;    (find-all-deps m []))
+;;   ([m all-deps] 
+;;     (let [direct-deps (find-deps m)]
+;;       (if-not (seq direct-deps)
+;;         all-deps
+;;         (map #(recur % (concat all-deps %)) direct-deps)))))
+
+(defn delete-deps-aws-id [id]
+  (delete-op! (find-deps-aws-id id)))
+

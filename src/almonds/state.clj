@@ -1,12 +1,23 @@
 (ns almonds.state)
 
-(def staging-state (atom {}))
-(def pushed-state (atom {}))
+(def local-state (atom {}))
 (def remote-state (atom {}))
+(def remote-state-all (atom {}))
 (def resource-types (atom []))
 
-(def first-pull-taken? (atom false))
+(def already-retrieved-remote? (atom false))
+
+;;;;;;;;;;;;;;; clear states ;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn clear-all []
+  (reset! already-retrieved-remote? false)
+  (doseq [state [local-state remote-state remote-state-all]]
+    (reset! state {})))
+
+(defn clear-remote-state []
+  (reset! remote-state-all {})
+  (reset! remote-state {}))
 
 (def reset-resource-types #(reset! resource-types []))
 
-(def set-first-pull-taken #(reset! first-pull-taken? true))
+(def set-already-retrieved-remote #(reset! already-retrieved-remote? true))

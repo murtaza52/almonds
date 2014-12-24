@@ -8,7 +8,7 @@
   (defcredential aws-access-key aws-secret aws-url))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; reset state ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(api/clear-all)
+(state/clear-all)
 
 ;;;;;;;;;;;;;;;; execute the handler calls ;;;;;;;;;;;;;;;
 (require 'almonds.handler)
@@ -17,5 +17,10 @@
 (state/reset-resource-types)
 (require 'almonds.resources :reload)
 
+;;; 
+;;(api/pull)
+
 (defn set-config [{:keys [log-ec2-calls]}]
   (reset! almonds.handler/log-ec2-calls log-ec2-calls))
+
+

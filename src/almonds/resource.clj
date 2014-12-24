@@ -27,7 +27,7 @@
        (~validate-fn m#))
      (defmethod create ~resource-type [m#]
        (when-let [response# (~create-fn (~create-map m#))]
-         (swap! pushed-state conj (-> response#
+         (swap! remote-state conj (-> response#
                                         vals
                                         first
                                         (#(merge % {:almonds-aws-id (% ~aws-id-key)}))

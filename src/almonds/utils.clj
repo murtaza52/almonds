@@ -131,7 +131,7 @@
      (update-in m
                 [tags-key]
                 (fn[tags]
-                  (vec (if (coll-contains? type tags) tags (cons type tags)))))))
+                  (into #{} (concat #{type} tags))))))
 
 (add-type-to-tags {:almonds-tags [:a] :almonds-type :abc})
 
@@ -150,4 +150,5 @@
        (into #{})
        ((fn[s] (if (s id) true false)))))
 
-(comment (is-dependent? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"}))
+(comment (is-dependent? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"})
+         (is-dependent? #{:a :b} {:s #{:a :b}}))

@@ -39,7 +39,7 @@
 
 (def acl-entry {:almonds-type :network-acl-entry
                 :egress false
-                :protocol "6"
+                :protocol :tcp
                 :rule-action "allow"
                 :port-range {:from 22 :to 22}
                 :cidr-block "0.0.0.0/0"
@@ -51,9 +51,16 @@
                :cidr-block "10.3.0.0/16"
                :instance-tenancy "default"})
 
+(comment 
+  (pull)
+  (add [test-vpc test-subnet test-acl acl-entry])
+  (diff-tags)
+  (compare-resources 32767 :ingress)
+  @remote-state-all
+  
+  (recreate)
+  (clear-remote-state)
+)
 
 (comment 
-  (add [test-vpc test-subnet test-acl acl-entry])
-  (recreate))
-
-
+  (get-remote 3))

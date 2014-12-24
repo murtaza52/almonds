@@ -3,7 +3,8 @@
             [almonds.utils :refer :all]
             [almonds.contract :refer :all]
             [almonds.resource :refer :all]
-            [almonds.api :refer :all]))
+            [almonds.api :refer :all]
+            [almonds.protocol-numbers :refer :all]))
 
 (defresource {:resource-type :customer-gateway
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
@@ -40,12 +41,15 @@
               :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
 
 (defn get-entries [{:keys [entries] :as m}]
-  (map #(merge % {:almonds-type :network-acl-entry
-                  :almonds-tags (into #{}
-                                      (concat
-                                       (drop-val :network-acl (:almonds-tags m))
-                                       #{:network-acl-entry (rule-type (:egress %)) (:rule-number %)}))
-                  :network-acl-id (:almonds-tags m)})
+  (map (fn[acl-entry]
+         (-> acl-entry
+           (merge {:almonds-type :network-acl-entry
+                   :almonds-tags (into #{}
+                                       (concat
+                                        (drop-val :network-acl (:almonds-tags m))
+                                        #{:network-acl-entry (rule-type (:egress acl-entry)) (:rule-number acl-entry)}))
+                   :network-acl-id (:almonds-tags m)})
+           (update-in [:protocol] get-protocol-keyword)))
        entries))
 
 (defn get-associations [{:keys [associations] :as acl}]
@@ -71,13 +75,13 @@
               :pre-staging-fn (fn[m]
                                 (add  [{:network-acl-id (:almonds-tags m),
                                         :almonds-type :network-acl-entry,
-                                        :protocol "-1",
+                                        :protocol :all,
                                         :rule-number 32767,
                                         :rule-action "deny",
                                         :cidr-block "0.0.0.0/0"}
                                        {:network-acl-id (:almonds-tags m),
                                         :almonds-type :network-acl-entry,
-                                        :protocol "-1",
+                                        :protocol :all,
                                         :rule-number 32767,
                                         :rule-action "deny",
                                         :egress true,
@@ -91,7 +95,8 @@
                             (-> m
                               (update-in [:network-acl-id] aws-id)
                               (update-in [:egress] #(if % % false))
-                              (dissoc :almonds-type :almonds-tags)))
+                              (dissoc :almonds-type :almonds-tags)
+                              (update-in [:protocol] get-protocol-num)))
               :create-fn #(if-not (default-acl-entry? %)
                             (aws-ec2/create-network-acl-entry %)
                             (println "Can not create default acl entry, it is created with the acl."))

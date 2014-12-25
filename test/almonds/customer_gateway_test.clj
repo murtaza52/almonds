@@ -11,8 +11,8 @@
 
 ;; (comment
 ;;   (r/reset-state)
-;;   (r/stage :murtaza-sandbox my-resources)
+;;   (r/add :murtaza-sandbox my-resources)
 ;;   (r/diff :murtaza-sandbox)
-;;   (r/push)
+;;   (r/sync)
 
-;;   @r/stage-state)
+;;   @r/add-state)

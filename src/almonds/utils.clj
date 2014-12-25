@@ -6,7 +6,9 @@
             [amazonica.aws.ec2 :as aws-ec2]
             [almonds.contract :refer :all]
             [schema.core :as schema]
-            [almonds.state :refer :all]))
+            [almonds.state :refer :all]
+            [slingshot.slingshot :refer [try+]]
+            [clojure.edn :as edn]))
 
 (defn print-me [v]
   (println v)
@@ -59,6 +61,17 @@
       (seq (filter (fn[m] (= (m k) v)) coll))
     true))
 
+(defn has-key-val? [k v m]
+  (= v (k m)))
+
+(has-key-val? :s 3 {:a 3})
+
+(defn has-key? [k m]
+  (when ((into #{} (keys m)) k) true))
+
+(has-key? :b {:b 3})
+
+
 (defn validate-all [& fns]
   (fn [resource]
     (every? true? ((apply juxt fns) resource))))
@@ -95,27 +108,57 @@
                      (if (keyword? v) (print-str v) v))]
     (mapv (fn [[k v]] {:key (if-keyword k) :value (if-keyword v)}) tags)))
 
+(defn safe-reader [v]
+  (try (edn/read-string v)
+       (catch java.lang.RuntimeException e nil)))
+
 (defn aws->almonds-tags [coll]
   (reduce (fn[m {:keys [key value]}]
-            (merge m {(read-string key) (read-string value)}))
+            (merge m {(safe-reader key) (safe-reader value)}))
           {}
           coll))
+
+(comment (safe-reader "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c")
+         (safe-reader "{:a 2}"))
 
 (defn create-tags [resource-id tags]
   (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags)))
   (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
 
-(defn ->almond-map [m]
+(defn add-almonds-keys [m]
   (let [{:keys [almonds-tags almonds-type]} (aws->almonds-tags (:tags m))]
-    (-> (merge m {:almonds-tags almonds-tags :almonds-type almonds-type})
-        (#(merge % {:almonds-aws-id ((aws-id-key %) %)})))))
+    (if (and almonds-tags almonds-type) 
+      (merge m {:almonds-tags almonds-tags :almonds-type almonds-type})
+      m)))
 
-(comment (->almond-map {:vpc-id 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
-                                         {:key ":almonds-type" :value ":vpc"}]}))
-(def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum @resource-types) schema/Keyword schema/Int})
+(comment (add-almonds-keys {:vpc-id 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
+                                             {:key ":almonds-type" :value ":vpc"}]})
+         (add-almonds-keys {:vpc-id 2}))
 
-(defn validate-schema [m]
-  (schema/validate resource-schema m))
+(defn add-almonds-aws-id [m]
+  (try+
+   (if-let [id (aws-id-key m)]
+     (assoc m :almonds-aws-id ((aws-id-key m) m))
+     m)
+   (catch [:type :almonds.contract/bad-almonds-type] e
+       m)))
+
+(comment 
+  (add-almonds-aws-id {:almonds-type :vpc, :almonds-tags [:a :b], :vpc-id 2})
+  (add-almonds-aws-id {:a 2})
+  (add-almonds-aws-id {:network-acl-id #{:web-tier :sandbox :network-acl :web-server},
+                       :almonds-tags #{:network-acl-entry :web-tier :sandbox 32767 :egress :web-server},
+                       :almonds-type :network-acl-entry,
+                       :protocol :all,
+                       :rule-number 32767,
+                       :rule-action "deny",
+                       :egress true,
+                       :cidr-block "0.0.0.0/0"}))
+
+;;(def resource-schema {:almonds-tags schema/Uuid :almonds-type (apply schema/enum @resource-types) schema/Keyword schema/Int})
+
+;; (defn validate-schema [m]
+;;   (schema/validate resource-schema m))
 
 (comment (validate-schema {:almonds-tags (uuid) :almonds-type :customer-gateway :bgp-asn 655}))
 
@@ -124,14 +167,18 @@
 
 (comment (coll-contains? 2 [3 2]))
 
+(defn add-type [type tags]
+  (into #{} (conj tags type)))
+
+(add-type :a [:c :d])
+
 (defn add-type-to-tags
   ([{:keys [almonds-type] :as m}]
      (add-type-to-tags :almonds-tags almonds-type m))
   ([tags-key type m]
      (update-in m
                 [tags-key]
-                (fn[tags]
-                  (into #{} (concat #{type} tags))))))
+                #(add-type type %))))
 
 (add-type-to-tags {:almonds-tags [:a] :almonds-type :abc})
 
@@ -145,10 +192,10 @@
        (map #(if (seq %) (seq %) (rest '())))
        (map (fn[c] (map #(into [] %) c)))))
 
-(defn is-dependent? [id m]
+(defn is-dependent-on? [id m]
   (->> (vals m)
        (into #{})
        ((fn[s] (if (s id) true false)))))
 
-(comment (is-dependent? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"})
-         (is-dependent? #{:a :b} {:s #{:a :b}}))
+(comment (is-dependent-on? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"})
+         (is-dependent-on? #{:a :b} {:s #{:a :b}}))

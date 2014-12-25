@@ -2,8 +2,12 @@
 
 (def local-state (atom {}))
 (def remote-state (atom {}))
-(def remote-state-all (atom {}))
-(def resource-types (atom []))
+
+(def create-sequence
+  [:customer-gateway :vpc :subnet :network-acl :network-acl-entry :network-acl-association])
+
+(def delete-sequence
+  [:subnet :network-acl-association :network-acl-entry :network-acl :vpc :customer-gateway])
 
 (def already-retrieved-remote? (atom false))
 
@@ -11,13 +15,10 @@
 
 (defn clear-all []
   (reset! already-retrieved-remote? false)
-  (doseq [state [local-state remote-state remote-state-all]]
+  (doseq [state [local-state remote-state]]
     (reset! state {})))
 
 (defn clear-remote-state []
-  (reset! remote-state-all {})
   (reset! remote-state {}))
-
-(def reset-resource-types #(reset! resource-types []))
 
 (def set-already-retrieved-remote #(reset! already-retrieved-remote? true))

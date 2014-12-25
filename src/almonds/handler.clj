@@ -165,10 +165,10 @@
      (with-handler! ~handler
        com.amazonaws.AmazonClientException
        (fn [e# & args#]
-         (throw+ {:msg "Exception while making a call to AWS."
+         (throw+ {:type ::aws-call-exception
                   :aws-fn ~handler
-                  :args (print-str args#)
-                  :error (print-str e#)})))))
+                  :args args#
+                  :error e#})))))
 
 (defmacro add-logging-hook [handler]
   `(do

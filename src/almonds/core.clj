@@ -14,7 +14,6 @@
 (require 'almonds.handler)
 
 ;;;;;;;;;;;;;;;; reset resources ;;;;;;;;;;;;;;;;;;;;;;
-(state/reset-resource-types)
 (require 'almonds.resources :reload)
 
 (defn set-config [{:keys [log-ec2-calls]}]

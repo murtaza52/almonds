@@ -4,7 +4,8 @@
             [almonds.contract :refer :all]
             [almonds.resource :refer :all]
             [almonds.api :refer :all]
-            [almonds.protocol-numbers :refer :all]))
+            [almonds.protocol-numbers :refer :all]
+            [almonds.state :refer :all]))
 
 (defresource {:resource-type :customer-gateway
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
@@ -28,40 +29,35 @@
               :delete-fn aws-ec2/delete-vpc
               :dependents-fn (constantly '())})
 
-(defresource {:resource-type :subnet
-              :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))
-              :create-fn aws-ec2/create-subnet
-              :validate-fn (constantly true)
-              :sanitize-ks [:available-ip-address-count]
-              :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
-              :describe-fn aws-ec2/describe-subnets
-              :aws-id-key :subnet-id
-              :delete-fn aws-ec2/delete-subnet
-              :dependents-fn (constantly '())
-              :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
-
 (defn get-entries [{:keys [entries] :as m}]
-  (map (fn[acl-entry]
-         (-> acl-entry
-           (merge {:almonds-type :network-acl-entry
-                   :almonds-tags (into #{}
-                                       (concat
-                                        (drop-val :network-acl (:almonds-tags m))
-                                        #{:network-acl-entry (rule-type (:egress acl-entry)) (:rule-number acl-entry)}))
-                   :network-acl-id (:almonds-tags m)})
-           (update-in [:protocol] get-protocol-keyword)))
-       entries))
+  (doall
+   (map (fn[acl-entry]
+          (-> acl-entry
+            (merge {:almonds-type :network-acl-entry
+                    :almonds-tags (into #{}
+                                        (concat
+                                         (drop-val :network-acl (:almonds-tags m))
+                                         #{:network-acl-entry (rule-type (:egress acl-entry)) (:rule-number acl-entry)}))
+                    :network-acl-id (:almonds-tags m)})
+            (update-in [:protocol] get-protocol-keyword)))
+        entries)))
+
+(defn create-almonds-tags-for-network-association [m]
+  (into #{}
+        (concat
+         #{:network-acl-association}
+         (drop-val :network-acl (:network-acl-id m))
+         (drop-val :subnet (:subnet-id m)))))
 
 (defn get-associations [{:keys [associations] :as acl}]
-  (map (fn[association]
-         (merge association {:almonds-type :network-acl-association
-                             :almonds-tags (into #{}
-                                                 (concat
-                                                  (drop-val :network-acl (:almonds-tags acl))
-                                                  #{:network-acl-association (:network-acl-association-id association)}))
-                             :network-acl-id (:almonds-tags acl)
-                             :subnet-id (aws-id->almonds-tags (:subnet-id association))}))
-       associations))
+  (doall
+   (map (fn[association]
+          (-> association
+            (merge {:almonds-type :network-acl-association
+                    :network-acl-id (:almonds-tags acl)
+                    :subnet-id (aws-id->almonds-tags (:subnet-id association))})
+            (#(merge % {:almonds-tags (create-almonds-tags-for-network-association %)}))))
+        associations)))
 
 (defresource {:resource-type :network-acl
               :create-map #(hash-map :vpc-id (aws-id (:vpc-id %)))
@@ -118,24 +114,47 @@
                                                                   (drop-val :network-acl (:network-acl-id m)))))))
                                  ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
                                  ((fn[m] (if (:egress m) m (dissoc m :egress)))))
-              :create-tags? false})
+              :create-tags? false
+              :is-dependent? true})
 
+(defn get-network-acl-association-id [subnet-id]
+  (let [subnet-aws-id (aws-id (add-type :subnet subnet-id))]
+    (->> (get-remote-raw)
+      (filter #(has-key? :network-acl-id %))
+      (mapcat :associations)
+      (filter #(has-key-val? :subnet-id subnet-aws-id %))
+      first
+      :network-acl-association-id)))
+
+(comment (get-network-acl-association-id [:sandbox :web-tier :web-server :subnet]))
 
 (defresource {:resource-type :network-acl-association
               :create-map (fn[m]
                             (-> m
                               (update-in [:network-acl-id] aws-id)
-                              (assoc :association-id :a)
+                              (assoc :association-id (get-network-acl-association-id (:subnet-id m)))
                               (dissoc :almonds-type :almonds-tags :subnet-id)))
               :create-fn aws-ec2/replace-network-acl-association
-              :delete-fn (constantly nil)
+              :delete-fn-alternate (fn[m]
+                                     (println "Network association can not be deleted but only replaced, thus unable to delete it.")) 
+              :sanitize-ks [:network-acl-association-id]
               :pre-staging-fn #(-> %
                                  ((fn[m]
-                                    (assoc m :almonds-tags (into #{}
-                                                                 (concat
-                                                                  #{:network-acl-entry (rule-type (:egress m)) (:rule-number m)}
-                                                                  (drop-val :network-acl (:network-acl-id m)))))))
+                                    (assoc m :almonds-tags (create-almonds-tags-for-network-association m))))
                                  ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
-                                 ((fn[m] (if (:egress m) m (dissoc m :egress)))))
-              :create-tags? false})
+                                 ((fn[m] (add-type-to-tags :subnet-id :subnet m))))
+              :create-tags? false
+              :is-dependent? true})
+
+(defresource {:resource-type :subnet
+              :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))
+              :create-fn aws-ec2/create-subnet
+              :validate-fn (constantly true)
+              :sanitize-ks [:available-ip-address-count]
+              :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
+              :describe-fn aws-ec2/describe-subnets
+              :aws-id-key :subnet-id
+              :delete-fn aws-ec2/delete-subnet
+              :dependents-fn (constantly '())
+              :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
 

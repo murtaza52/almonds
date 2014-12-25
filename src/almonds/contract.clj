@@ -6,9 +6,9 @@
   `(do
      (defmulti ~name :almonds-type)
      (defmethod ~name :default [args#]
-       (throw+ {:operation '~name
-                :args (print-str args#)
-                :msg "Either :type was not given or is an incorrect value."}))))
+       (throw+ {:type ::bad-almonds-type
+                :operation '~name
+                :args args#}))))
 
 (defmulti-with-default create)
 (defmulti-with-default sanitize)
@@ -16,5 +16,8 @@
 (defmulti-with-default validate)
 (defmulti-with-default delete)
 (defmulti-with-default aws-id-key)
-(defmulti-with-default dependents)
 (defmulti-with-default pre-staging)
+(defmulti-with-default is-dependent?)
+
+(defmulti dependents :almonds-type)
+(defmethod dependents :default [_] [])

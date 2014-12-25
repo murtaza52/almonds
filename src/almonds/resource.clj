@@ -9,37 +9,37 @@
 (def true-fn '(constantly true))
 
 (defmacro defresource
-  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate]
+  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate is-dependent?]
     :or {pre-staging-fn identity
          create-tags? true
          delete-fn false
          delete-fn-alternate false
          validate-fn true-fn
-         sanitize-ks empty-seq
+         sanitize-ks '[]
          sanitize-fn identity
          describe-fn empty-seq
          aws-id-key nil
-         dependents-fn empty-seq}}]
+         dependents-fn empty-seq
+         is-dependent? false}}]
   `(do
-     (when-not (coll-contains? ~resource-type @resource-types)
-       (swap! resource-types conj ~resource-type))
      (defmethod validate ~resource-type [m#]
        (~validate-fn m#))
      (defmethod create ~resource-type [m#]
        (when-let [response# (~create-fn (~create-map m#))]
-         (swap! remote-state conj (-> response#
-                                        vals
-                                        first
-                                        (#(merge % {:almonds-aws-id (% ~aws-id-key)}))
-                                        (#(merge % {:almonds-tags (:almonds-tags m#)}))
-                                        (#(merge % {:almonds-type (:almonds-type m#)}))))
-         (when ~create-tags? (->> m#
-                                  almonds-tags
-                                  almonds->aws-tags
-                                  (create-tags (aws-id (:almonds-tags m#)))))))
+         (when ~create-tags?
+           (swap! remote-state conj (-> response#
+                                      vals
+                                      first
+                                      (#(merge % {:almonds-aws-id (% ~aws-id-key)}))
+                                      (#(merge % {:almonds-tags (:almonds-tags m#)}))
+                                      (#(merge % {:almonds-type (:almonds-type m#)}))))
+           (->> m#
+             almonds-tags
+             almonds->aws-tags
+             (create-tags (aws-id (:almonds-tags m#)))))))
      (defmethod sanitize ~resource-type [m#]
        (-> (apply dissoc m# (conj ~sanitize-ks :tags :state :almonds-aws-id ~aws-id-key))
-           (~sanitize-fn)))
+         (~sanitize-fn)))
      (defmethod retrieve-all ~resource-type [_#]
        (-> (~describe-fn) vals first))
      (defmethod delete ~resource-type [m#]
@@ -51,4 +51,6 @@
      (defmethod dependents ~resource-type [m#]
        (~dependents-fn m#))
      (defmethod pre-staging ~resource-type [m#]
-       (~pre-staging-fn m#))))
+       (~pre-staging-fn m#))
+     (defmethod is-dependent? ~resource-type [_#]
+       ~is-dependent?)))

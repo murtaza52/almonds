@@ -7,20 +7,44 @@
             [clojure.set :refer [difference intersection]]
             [almonds.api-utils :refer :all]))
 
-(defn pull-remote-state []
-  (let [retrieved (->> @resource-types
-                    (mapcat #(retrieve-all {:almonds-type %}))
-                    (reset! remote-state-all))]
-    (set-already-retrieved-remote)
-    retrieved))
+(defn drop-from-remote-state [almonds-type]
+ (swap! remote-state
+         (fn[coll]
+           (remove
+            (fn[resource]
+              (= almonds-type (:almonds-type resource)))
+            coll))))
+
+(comment (drop-from-remote-state :vpc))
+
+(defn add-to-remote-state [resources]
+  (swap! remote-state
+         (fn[state]
+           (->> resources
+             (map add-almonds-keys)
+             (map add-almonds-aws-id)
+             ((fn [coll] (concat coll (doall (mapcat dependents coll)))))
+             (concat state)))))
+ 
+(defn pull-resource [almonds-type]
+  (when-not (is-dependent? {:almonds-type almonds-type})
+    (println "Pulling almonds-type" almonds-type)
+    (drop-from-remote-state almonds-type)
+    (add-to-remote-state (retrieve-all {:almonds-type almonds-type}))))
+
+(comment (pull-resource :network-acl))
+
+(defn sanitize-resources [resources]
+  (->> resources
+    (filter #(:almonds-tags %))
+    (filter #(:almonds-type %))
+    (map sanitize)))
 
 (defn pull []
-  (->> (pull-remote-state)
-    (filter (has-tag-key? ":almonds-tags"))
-    (filter (has-tag-key? ":almonds-type"))
-    (map ->almond-map)
-    ((fn [coll] (concat coll (mapcat dependents coll))))
-    (reset! remote-state)))
+  (set-already-retrieved-remote)
+  (doall (map pull-resource create-sequence)))
+
+(comment (pull))
 
 ;;;;;;;;;;;;;; get-functions for filtering remote and local resources ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -29,11 +53,10 @@
   (apply filter-resources @remote-state args))
 
 (defn get-remote [& args]
-  (->> (apply get-remote-raw args)
-    (map sanitize)))
+  (sanitize-resources (apply get-remote-raw args)))
 
 (defn get-remote-tags [& args]
-  (->> (apply get-remote-raw args)
+  (->> (apply get-remote args)
     (map :almonds-tags)))
 
 (defn get-local [& args]
@@ -89,11 +112,6 @@
 
 ;;;;;;;;;;;; functions for manipulating state ;;;;;;;;;;;;;;;;;;;
 
-(defn sanitize-resources []
-  (->> @remote-state
-    (map ->almond-map)
-    (map sanitize)))
-
 (defn add-resource
   "Stages the resource and returns the resource from the local-state."
   [resource]
@@ -125,59 +143,55 @@
 
 ;;;;;;;;;;;;;;;;; ops ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (defn- delete-op! [coll]
-  (doseq [r-type (reverse @resource-types)
-          v (filter-resources coll r-type)]
-    (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
-    (delete v)))
+  (doseq [r-type delete-sequence]
+    (when-let [to-delete (seq (filter-resources coll r-type))]
+      (doseq [v to-delete]
+        (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
+        (delete v))
+      (pull-resource r-type))))
 
 (defn- create-op! [coll]
-  (doseq [r-type @resource-types
-          v (filter-resources coll r-type)]
-    (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
-    (println (print-str v))
-    (create v)))
+  (doseq [r-type create-sequence]
+    (when-let [to-create (seq (filter-resources coll r-type))]
+      (doseq [v to-create]
+        (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
+        (println (print-str v))
+        (create v))
+      (pull-resource r-type))))
 
 (defn- recreate-op! [coll]
   (delete-op! coll)
-  (pull)
   (create-op! coll))
 
 ;;;;;;;;;;; apply fns ;;;;;;;;;;;;;;;;;;;;;;
 
 (defn sync-only-create [& args]
   (let [{:keys [only-in-local]} (apply diff args)]
-    (create-op! only-in-local)
-    (pull)))
+    (create-op! only-in-local)))
 
 (defn sync-only-delete [& args]
   (let [{:keys [only-on-remote]} (apply diff args)]
-    (delete-op! only-on-remote)
-    (pull)))
+    (delete-op! only-on-remote)))
 
 (defn sync-only-inconsistent [& args]
   (let [{:keys [inconsistent]} (apply diff args)]
-    (recreate-op! inconsistent)
-    (pull)))
+    (recreate-op! inconsistent)))
 
-(defn sync-without-pull [& args]
+(defn sync-resources [& args]
   (let [{:keys [only-in-local only-on-remote inconsistent]} (apply diff args)]
     (delete-op! only-on-remote)
     (create-op! only-in-local)
     (recreate-op! inconsistent)))
 
-(defn sync-resources [& args]
-  (apply sync-without-pull args)
-  (pull))
-
 (defn recreate [& args]
   (->> (apply get-local args)
-    (recreate-op!))
-  (pull))
+    (recreate-op!)))
 
 (defn delete-resources [& args]
-  (apply expel args)
-  (apply sync-only-delete args))
+  (delete-op! (apply get-local args))
+  (apply expel args))
 
 (defn aws-id [almonds-tags]
   (let [resources (apply get-remote-raw almonds-tags)]
@@ -201,12 +215,14 @@
                            :args (print-str aws-id)
                            :msg "Unable to find almonds-tags for the given aws-id."}))))
 
+
+
 (defn find-deps-aws-id [id]
-  (filter #(is-dependent? id %) (get-remote-raw)))
+  (filter #(is-dependent-on? id %) (get-remote-raw)))
 
 (defn find-deps [m]
   (when-let [almonds-tags (:almonds-tags (get-local-resource m))]
-    (filter #(is-dependent? almonds-tags %) (get-local))))
+    (filter #(is-dependent-on? almonds-tags %) (get-local))))
 
 ;; (defn find-all-deps 
 ;;   ([m]

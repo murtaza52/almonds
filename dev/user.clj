@@ -6,6 +6,6 @@
 
 (require 'almonds.core :reload) ;; for compilation of macros
 
-(def config {:log-ec2-calls true})
+(def config {:log-ec2-calls false})
 
 (almonds.core/set-config config)

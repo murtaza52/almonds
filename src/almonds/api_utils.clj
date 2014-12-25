@@ -12,7 +12,7 @@
                             (into #{} args)))
            coll)))
 
-(comment (filter-resources @remote-state))
+(comment (filter-resources @remote-state :vpc))
 (comment (filter-resources nil))
 
 

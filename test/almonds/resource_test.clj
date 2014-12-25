@@ -46,21 +46,40 @@
                 :rule-number 3
                 :network-acl-id [:sandbox :web-tier :web-server]})
 
+(def acl-association {:almonds-type :network-acl-association
+                      :network-acl-id [:sandbox :web-tier :web-server]
+                      :subnet-id [:sandbox :web-tier :web-server]})
+
 (def test-vpc {:almonds-type :vpc
                :almonds-tags [:sandbox :web-tier]
                :cidr-block "10.3.0.0/16"
                :instance-tenancy "default"})
 
-(comment 
-  (pull)
-  (add [test-vpc test-subnet test-acl acl-entry])
-  (diff-tags)
-  (compare-resources 32767 :ingress)
-  @remote-state-all
-  
-  (recreate)
-  (clear-remote-state)
-)
+(add [test-vpc test-subnet test-acl acl-entry acl-association])
 
 (comment 
-  (get-remote 3))
+  (pull)
+  (add [test-vpc])
+  (expel :vpc)
+  (diff-tags)
+  (sync-resources)
+  (sync-only-delete)
+  (compare-resources :network-acl-entry 3)
+  (recreate)
+  (get-remote-tags :network-acl-entry)
+  (clear-all)
+  (sync-only-create)
+  (set-already-retrieved-remote)
+
+  (delete-resources :network-acl)
+  (pull-resource :network-acl)
+  (pull)
+
+(is-dependent? {:almonds-type :network-acl-entry})
+
+@remote-state
+
+  )
+
+
+

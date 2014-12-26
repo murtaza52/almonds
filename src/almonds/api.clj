@@ -27,10 +27,12 @@
  
 (defn pull-resource [almonds-type]
   (doall (map drop-from-remote-state (dependent-types {:almonds-type almonds-type})))
-  (when-not (is-dependent? {:almonds-type almonds-type})
-    (println "Pulling almonds-type" almonds-type)
-    (drop-from-remote-state almonds-type)
-    (add-to-remote-state (retrieve-all {:almonds-type almonds-type}))))
+  (if (is-dependent? {:almonds-type almonds-type})
+    (pull-resource (parent-type {:almonds-type almonds-type}))
+    (do 
+      (println "Pulling almonds-type" almonds-type)
+      (drop-from-remote-state almonds-type)
+      (add-to-remote-state (retrieve-all {:almonds-type almonds-type})))))
 
 (comment (pull-resource :network-acl))
 
@@ -42,7 +44,7 @@
 
 (defn pull []
   (set-already-retrieved-remote)
-  (doall (map pull-resource create-sequence))
+  (doall (map pull-resource pull-sequence))
   @remote-state)
 
 (comment (pull))
@@ -187,8 +189,7 @@
     (recreate-op! inconsistent)))
 
 (defn recreate [& args]
-  (->> (apply get-local args)
-    (recreate-op!)))
+  (recreate-op! (apply get-local args)))
 
 (defn delete-resources [& args]
   (delete-op! (apply get-local args))

@@ -17,6 +17,8 @@
         id (:group-id response)]
     (create-aws-tags id m)))
 
+(defmethod parent-type :security-group [_]
+  nil)
 
 (defmethod sanitize :security-group [m]
   (-> m

@@ -19,6 +19,7 @@
 (defmulti-with-default pre-staging)
 (defmulti-with-default is-dependent?)
 (defmulti-with-default dependent-types)
+(defmulti-with-default parent-type)
 
 (defmulti dependents :almonds-type)
 (defmethod dependents :default [_] [])

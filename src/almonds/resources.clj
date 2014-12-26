@@ -116,7 +116,8 @@
                                  ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
                                  ((fn[m] (if (:egress m) m (dissoc m :egress)))))
               :create-tags? false
-              :is-dependent? true})
+              :is-dependent? true
+              :parent-type :network-acl})
 
 (defn get-network-acl-association-id [subnet-id]
   (let [subnet-aws-id (aws-id (add-type :subnet subnet-id))]
@@ -145,7 +146,8 @@
                                  ((fn[m] (add-type-to-tags :network-acl-id :network-acl m)))
                                  ((fn[m] (add-type-to-tags :subnet-id :subnet m))))
               :create-tags? false
-              :is-dependent? true})
+              :is-dependent? true
+              :parent-type :network-acl})
 
 (defresource {:resource-type :subnet
               :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))

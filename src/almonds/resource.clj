@@ -9,7 +9,7 @@
 (def true-fn '(constantly true))
 
 (defmacro defresource
-  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate is-dependent? describe-fn-alternate dependent-types]
+  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate is-dependent? describe-fn-alternate dependent-types parent-type]
     :or {pre-staging-fn identity
          create-tags? true
          delete-fn false
@@ -22,7 +22,8 @@
          dependents-fn empty-seq
          is-dependent? false
          describe-fn-alternate false
-         dependent-types '[]}}]
+         dependent-types '[]
+         parent-type nil}}]
   `(do
      (defmethod validate ~resource-type [m#]
        (~validate-fn m#))
@@ -59,4 +60,6 @@
      (defmethod is-dependent? ~resource-type [_#]
        ~is-dependent?)
      (defmethod dependent-types ~resource-type [_#]
-       ~dependent-types)))
+       ~dependent-types)
+     (defmethod parent-type ~resource-type [_#]
+       ~parent-type)))

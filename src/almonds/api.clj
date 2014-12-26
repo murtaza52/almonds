@@ -18,15 +18,15 @@
 (comment (drop-from-remote-state :vpc))
 
 (defn add-to-remote-state [resources]
-  (swap! remote-state
-         (fn[state]
-           (->> resources
-             (map add-almonds-keys)
-             (map add-almonds-aws-id)
-             ((fn [coll] (concat coll (doall (mapcat dependents coll)))))
-             (concat state)))))
+  (let [coll (->> resources
+               (map add-almonds-keys)
+               (map add-almonds-aws-id)
+               ((fn [coll] (concat coll (doall (mapcat dependents coll))))))]
+    (swap! remote-state #(concat % coll))
+    coll))
  
 (defn pull-resource [almonds-type]
+  (doall (map drop-from-remote-state (dependent-types {:almonds-type almonds-type})))
   (when-not (is-dependent? {:almonds-type almonds-type})
     (println "Pulling almonds-type" almonds-type)
     (drop-from-remote-state almonds-type)
@@ -42,7 +42,8 @@
 
 (defn pull []
   (set-already-retrieved-remote)
-  (doall (map pull-resource create-sequence)))
+  (doall (map pull-resource create-sequence))
+  @remote-state)
 
 (comment (pull))
 

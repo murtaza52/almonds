@@ -9,7 +9,7 @@
 (def true-fn '(constantly true))
 
 (defmacro defresource
-  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate is-dependent?]
+  [{:keys [resource-type create-map create-fn validate-fn sanitize-ks describe-fn aws-id-key delete-fn sanitize-fn dependents-fn pre-staging-fn create-tags? delete-fn-alternate is-dependent? describe-fn-alternate dependent-types]
     :or {pre-staging-fn identity
          create-tags? true
          delete-fn false
@@ -20,7 +20,9 @@
          describe-fn empty-seq
          aws-id-key nil
          dependents-fn empty-seq
-         is-dependent? false}}]
+         is-dependent? false
+         describe-fn-alternate false
+         dependent-types '[]}}]
   `(do
      (defmethod validate ~resource-type [m#]
        (~validate-fn m#))
@@ -41,7 +43,9 @@
        (-> (apply dissoc m# (conj ~sanitize-ks :tags :state :almonds-aws-id ~aws-id-key))
          (~sanitize-fn)))
      (defmethod retrieve-all ~resource-type [_#]
-       (-> (~describe-fn) vals first))
+       (if ~describe-fn-alternate
+         (~describe-fn-alternate)
+         (-> (~describe-fn) vals first)))
      (defmethod delete ~resource-type [m#]
        (if-not ~delete-fn-alternate
          (~delete-fn {~aws-id-key (aws-id (:almonds-tags m#))})
@@ -53,4 +57,6 @@
      (defmethod pre-staging ~resource-type [m#]
        (~pre-staging-fn m#))
      (defmethod is-dependent? ~resource-type [_#]
-       ~is-dependent?)))
+       ~is-dependent?)
+     (defmethod dependent-types ~resource-type [_#]
+       ~dependent-types)))

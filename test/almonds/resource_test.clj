@@ -55,9 +55,25 @@
                :cidr-block "10.3.0.0/16"
                :instance-tenancy "default"})
 
-(add [test-vpc test-subnet test-acl acl-entry acl-association])
+(def security-group-2 {:vpc-id [:sandbox :web-tier]
+                     :description "Almonds test security group"
+                     :group-name "test security group"
+                     :almonds-type :security-group
+                     :almonds-tags [:sandbox :web-tier :app-box]})
 
-(comment 
+(aws-ec2/create-security-group { :description "Almonds test security group"
+                                :group-name "test security group"
+                                })
+
+(def security-group {:vpc-id [:sandbox :web-tier]
+                     :almonds-type :security-group
+                     :almonds-tags [:sandbox :web-tier :app-box]})
+
+(add [test-vpc test-subnet test-acl acl-entry acl-association security-group])
+
+(comment
+  (get-remote-raw)
+  
   (pull)
   (add [test-vpc])
   (expel :vpc)
@@ -66,16 +82,18 @@
   (sync-only-delete)
   (compare-resources :network-acl-entry 3)
   (recreate)
-  (get-remote-tags :network-acl-entry)
+  (get-remote :network-acl-entry)
   (clear-all)
   (sync-only-create)
   (set-already-retrieved-remote)
 
   (delete-resources :network-acl)
-  (pull-resource :network-acl)
+  (pull-resource :security-group)
   (pull)
 
-(is-dependent? {:almonds-type :network-acl-entry})
+(dependent-types {:almonds-type :network-acl-entry})
+
+(create (first (get-local :security-group)))
 
 @remote-state
 

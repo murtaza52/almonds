@@ -83,11 +83,13 @@
 
 (defn id->name [id] (kebab/->Camel_Snake_Case_String id))
 
+(comment (id->name :a))
+
 (defn tags->name [coll]
   (->> coll
        (map (fn[k] (if (keyword? k) k (print-str k))))
        (map kebab/->Camel_Snake_Case_String)
-       (clojure.string/join " : ")))
+       (clojure.string/join "; ")))
 
 (comment (tags->name [:a :b-c 2]))
 

@@ -18,6 +18,7 @@
 (defmulti-with-default aws-id-key)
 (defmulti-with-default pre-staging)
 (defmulti-with-default is-dependent?)
+(defmulti-with-default dependent-types)
 
 (defmulti dependents :almonds-type)
 (defmethod dependents :default [_] [])

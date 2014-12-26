@@ -99,16 +99,17 @@
           "Name" (tags->name almonds-tags)}
          tags))
 
+(defn almonds->aws-tags [tags]
+  (let [if-keyword (fn[v]
+                     (if (keyword? v) (print-str v) v))]
+    (mapv (fn [[k v]] {:key (if-keyword k) :value (if-keyword v)}) tags)))
+
+
 (comment
   (almonds->aws-tags {:hi "abc" "Name4" "qwe"})
   (aws->almonds-tags [{:key ":name", :value "qwe"} {:key ":almonds-tags", :value "[:a :b]"}])
   (almonds-tags {:almonds-type :customer-gateway :almonds-tags [:a :b] :tags {"Name2" "hi"}})
   (id->name :g3))
-
-(defn almonds->aws-tags [tags]
-  (let [if-keyword (fn[v]
-                     (if (keyword? v) (print-str v) v))]
-    (mapv (fn [[k v]] {:key (if-keyword k) :value (if-keyword v)}) tags)))
 
 (defn safe-reader [v]
   (try (edn/read-string v)
@@ -126,6 +127,12 @@
 (defn create-tags [resource-id tags]
   (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags)))
   (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
+
+(defn create-aws-tags [id m]
+  (->> m
+    almonds-tags
+    almonds->aws-tags
+    (create-tags id)))
 
 (defn add-almonds-keys [m]
   (let [{:keys [almonds-tags almonds-type]} (aws->almonds-tags (:tags m))]

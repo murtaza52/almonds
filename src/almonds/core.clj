@@ -1,7 +1,8 @@
 (ns almonds.core
   (:require [amazonica.core :as aws-core :refer [defcredential]]
             [almonds.api :as api]
-            [almonds.state :as state]))
+            [almonds.state :as state]
+            [almonds.resources.security-group]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; credentials ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn set-aws-credentials [aws-access-key aws-secret aws-url]

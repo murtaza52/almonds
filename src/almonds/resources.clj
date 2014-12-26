@@ -159,27 +159,6 @@
               :dependents-fn (constantly '())
               :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
 
-(defresource {:resource-type :security-group
-              :create-map (fn[m]
-                            (as-> m m
-                              (update-in m [:vpc-id] aws-id)
-                              (dissoc m :almonds-tags :almonds-tags)))
-              :create-fn aws-ec2/create-security-group
-              :sanitize-ks [:ip-permissions :owner-id :ip-permissions-egress]
-              :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
-              :describe-fn aws-ec2/describe-security-groups
-              :aws-id-key :group-id
-              :delete-fn aws-ec2/delete-security-group
-              :dependents-fn (constantly '())
-              :pre-staging-fn (fn[m]
-                                (as-> m m
-                                  (add-type-to-tags :vpc-id :vpc m)
-                                  (merge {:group-name (tags->name (:almonds-tags m))} m)
-                                  (merge {:description (tags->name (:almonds-tags m))} m)))})
-
-
-
-
 ;; (defresource {:resource-type :instance
 ;;               :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))
 ;;               :create-fn aws-ec2/create-subnet

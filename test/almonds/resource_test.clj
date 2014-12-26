@@ -61,10 +61,6 @@
                      :almonds-type :security-group
                      :almonds-tags [:sandbox :web-tier :app-box]})
 
-(aws-ec2/create-security-group { :description "Almonds test security group"
-                                :group-name "test security group"
-                                })
-
 (def security-group {:vpc-id [:sandbox :web-tier]
                      :almonds-type :security-group
                      :almonds-tags [:sandbox :web-tier :app-box]})

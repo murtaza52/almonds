@@ -10,12 +10,20 @@
             [slingshot.slingshot :refer [try+]]
             [clojure.edn :as edn]))
 
+(defn remove-nils-from-tags [coll]
+  (into #{}
+        (filterv (complement nil?) coll)))
+
+(remove-nils-from-tags #{:a nil})
+
 (defn print-me [v]
   (println v)
   v)
 
 (defn drop-val [v coll]
   (difference (into #{} coll) #{v}))
+
+(drop-val :a [:a :c])
 
 (defn coll-contains? [v coll]
   (if ((into #{} coll) v)

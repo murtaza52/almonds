@@ -56,42 +56,65 @@
                :instance-tenancy "default"})
 
 (def security-group-2 {:vpc-id [:sandbox :web-tier]
-                     :description "Almonds test security group"
-                     :group-name "test security group"
-                     :almonds-type :security-group
-                     :almonds-tags [:sandbox :web-tier :app-box]})
+                       :description "Almonds test security group"
+                       :group-name "test security group"
+                       :almonds-type :security-group
+                       :almonds-tags [:sandbox :web-tier :app-box]})
 
 (def security-group {:vpc-id [:sandbox :web-tier]
                      :almonds-type :security-group
                      :almonds-tags [:sandbox :web-tier :app-box]})
 
+(def security-rule {:group-id [:sandbox :web-tier :app-box]
+                    :egress false
+                    :cidr-ip "27.0.0.0/0"
+                    :ip-protocol "-1"
+                    :from-port 7015
+                    :to-port 7015
+                    :almonds-type :security-rule})
+
+(def security-rule2 {:group-name "App_Box; Web_Tier; Sandbox; Security_Group" 
+                     :cidr-ip "27.0.0.0/0"
+                     :ip-protocol "-1"
+                     :from-port 7015
+                     :to-port 7015
+                     :vpc-id "vpc-4e2f482b"})
+
+;;(aws-id #{:app-box :web-tier :sandbox :security-group})
+;;(aws-id #{:sandbox :web-tier :vpc})
+
+;;(aws-ec2/authorize-security-group-ingress security-rule2)
+
 (add [test-vpc test-subnet test-acl acl-entry acl-association security-group])
 
+(aws-id->almonds-tags "sg-0760a463")
+
 (comment
-  (get-remote-raw)
-  
-  (pull)
+  (get-local :security-ru)
+  (get-remote :security-rule)
+  (pull-resource :security-group)
   (add [test-vpc])
-  (expel :vpc)
-  (diff-tags)
+  (expel)
+  (diff-tags 9023)
   (sync-resources)
   (sync-only-delete)
-  (compare-resources :network-acl-entry 3)
+  (compare-resources :security-rule 9023)
   (recreate)
-  (get-remote :network-acl-entry)
+  (get-remote-raw :security-group)
   (clear-all)
   (sync-only-create)
   (set-already-retrieved-remote)
 
-  (delete-resources :network-acl)
+  (delete-resources :security-group)
   (pull-resource :security-group)
   (pull)
 
-(dependent-types {:almonds-type :network-acl-entry})
+  (dependent-types {:almonds-type :network-acl-entry})
 
-(create (first (get-local :security-group)))
+  (create (first (get-local :security-group)))
 
-@remote-state
+
+  @remote-state
 
   )
 

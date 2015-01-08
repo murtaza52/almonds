@@ -69,19 +69,19 @@
               :aws-id-key :network-acl-id
               :delete-fn aws-ec2/delete-network-acl
               :pre-staging-fn (fn[m]
-                                (add  [{:network-acl-id (:almonds-tags m),
-                                        :almonds-type :network-acl-entry,
-                                        :protocol :all,
-                                        :rule-number 32767,
-                                        :rule-action "deny",
-                                        :cidr-block "0.0.0.0/0"}
-                                       {:network-acl-id (:almonds-tags m),
-                                        :almonds-type :network-acl-entry,
-                                        :protocol :all,
-                                        :rule-number 32767,
-                                        :rule-action "deny",
-                                        :egress true,
-                                        :cidr-block "0.0.0.0/0"}])
+                                (add [{:network-acl-id (:almonds-tags m),
+                                       :almonds-type :network-acl-entry,
+                                       :protocol :all,
+                                       :rule-number 32767,
+                                       :rule-action "deny",
+                                       :cidr-block "0.0.0.0/0"}
+                                      {:network-acl-id (:almonds-tags m),
+                                       :almonds-type :network-acl-entry,
+                                       :protocol :all,
+                                       :rule-number 32767,
+                                       :rule-action "deny",
+                                       :egress true,
+                                       :cidr-block "0.0.0.0/0"}])
                                 (add-type-to-tags :vpc-id :vpc m))
               :dependents-fn (fn[acl]
                                (concat (get-entries acl) (get-associations acl)))

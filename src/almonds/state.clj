@@ -4,13 +4,13 @@
 (def remote-state (atom {}))
 
 (def create-sequence
-  [:customer-gateway :vpc :security-group :subnet :network-acl :network-acl-entry :network-acl-association])
+  [:customer-gateway :vpc :security-group :security-rule :subnet :network-acl :network-acl-entry :network-acl-association])
 
 (def pull-sequence
   [:customer-gateway :vpc :security-group :subnet :network-acl])
 
 (def delete-sequence
-  [:security-group :subnet :network-acl-association :network-acl-entry :network-acl :vpc :customer-gateway])
+  [:security-rule :security-group :subnet :network-acl-association :network-acl-entry :network-acl :vpc :customer-gateway])
 
 (def already-retrieved-remote? (atom false))
 

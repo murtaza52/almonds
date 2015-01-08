@@ -12,5 +12,6 @@
                  [prismatic/schema "0.2.6"]
                  [camel-snake-kebab "0.2.4"]
                  [org.clojure/data.json "0.2.5"]
-                 [environ "1.0.0"]]
+                 [environ "1.0.0"]
+                 [org.clojure/tools.trace "0.7.8"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.4"]]}})

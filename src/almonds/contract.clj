@@ -21,5 +21,10 @@
 (defmulti-with-default dependent-types)
 (defmulti-with-default parent-type)
 
+(defmulti prepare-almonds-tags :almonds-type)
+
+(defmulti get-default-dependents :almonds-type)
+(defmethod get-default-dependents :default [_] [])
+
 (defmulti dependents :almonds-type)
 (defmethod dependents :default [_] [])

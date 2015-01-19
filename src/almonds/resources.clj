@@ -7,6 +7,12 @@
             [almonds.protocol-numbers :refer :all]
             [almonds.state :refer :all]))
 
+;; this will have to be implemented for all dependents - acl dependents.
+(defmethod prepare-almonds-tags :default [resource]
+  (default-prepare-almonds-tags resource))
+
+
+
 (defresource {:resource-type :customer-gateway
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
               :create-fn aws-ec2/create-customer-gateway

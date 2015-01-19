@@ -13,7 +13,7 @@
 
 (def all-ns '[almonds.resource almonds.state almonds.api almonds.contract almonds.resources almonds.resources.security-rule almonds.resources.security-group])
 
-(trace-ns almonds.api)
+;;(trace-ns almonds.api)
 
 ;; (for [v all-ns]
 ;;   (trace-ns v))

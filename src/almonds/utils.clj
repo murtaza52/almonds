@@ -201,6 +201,13 @@
 
 (add-type-to-tags :vpc-id :vpc {:vpc-id [:a :b]})
 
+(defn default-prepare-almonds-tags [resource]
+  (-> resource
+      (update-in [:almonds-tags] (fn[tags] (into #{} tags)))
+      (add-type-to-tags)))
+
+(default-prepare-almonds-tags {:almonds-tags [:a] :almonds-type :abc})
+
 (defn default-acl-entry? [{:keys [rule-number]}]
   (>= rule-number 32767))
 
@@ -209,6 +216,8 @@
        (map #(if (seq %) (seq %) (rest '())))
        (map (fn[c] (map #(into [] %) c)))))
 
+(into-seq [nil nil #{#{:web-tier :sandbox :web-server :subnet}}])
+
 (defn is-dependent-on? [id m]
   (->> (vals m)
        (into #{})
@@ -216,3 +225,8 @@
 
 (comment (is-dependent-on? "vpc-c44bd2a1" {:a "vpc-c44bd2a1"})
          (is-dependent-on? #{:a :b} {:s #{:a :b}}))
+
+(defn into-set [coll]
+  (into #{} coll))
+
+(into-set [:a :b])

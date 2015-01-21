@@ -21,9 +21,7 @@
   nil)
 
 (defmethod sanitize :security-group [m]
-  (-> m
-    (dissoc :ip-permissions :owner-id :ip-permissions-egress :group-id :tags :state :almonds-aws-id)
-    (#(if (:vpc-id %)(update-in % [:vpc-id] aws-id->almonds-tags) %))))
+  (if (:vpc-id m)(update-in m [:vpc-id] aws-id->almonds-tags) m))
 
 (defmethod retrieve-all :security-group [_]
   (-> (aws-ec2/describe-security-groups)

@@ -41,8 +41,7 @@
              almonds->aws-tags
              (create-tags (aws-id (:almonds-tags m#)))))))
      (defmethod sanitize ~resource-type [m#]
-       (-> (apply dissoc m# (conj ~sanitize-ks :tags :state :almonds-aws-id ~aws-id-key))
-         (~sanitize-fn)))
+       (~sanitize-fn m#))
      (defmethod retrieve-all ~resource-type [_#]
        (if ~describe-fn-alternate
          (~describe-fn-alternate)

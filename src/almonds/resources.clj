@@ -15,7 +15,6 @@
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
               :create-fn aws-ec2/create-customer-gateway
               :validate-fn (constantly true)
-              :sanitize-ks [:type]
               :sanitize-fn #(update-in % [:bgp-asn] read-string)
               :describe-fn aws-ec2/describe-customer-gateways
               :aws-id-key :customer-gateway-id
@@ -26,7 +25,6 @@
               :create-map #(hash-map :cidr-block (:cidr-block %) :instance-tenancy (:instance-tenancy %))
               :create-fn aws-ec2/create-vpc
               :validate-fn (constantly true)
-              :sanitize-ks [:dhcp-options-id]
               :sanitize-fn identity
               :describe-fn aws-ec2/describe-vpcs
               :aws-id-key :vpc-id
@@ -67,7 +65,6 @@
               :create-map #(hash-map :vpc-id (aws-id (:vpc-id %)))
               :create-fn aws-ec2/create-network-acl
               :validate-fn (constantly true)
-              :sanitize-ks [:is-default :entries :associations]
               :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
               :describe-fn aws-ec2/describe-network-acls
               :aws-id-key :network-acl-id
@@ -101,7 +98,6 @@
               :create-fn #(if-not (default-acl-entry? %)
                             (aws-ec2/create-network-acl-entry %)
                             (println "Can not create default acl entry, it is created with the acl."))
-              :sanitize-ks []
               :sanitize-fn identity
               :describe-fn (constantly '())
               :aws-id-key nil
@@ -143,7 +139,6 @@
               :create-fn aws-ec2/replace-network-acl-association
               :delete-fn-alternate (fn[m]
                                      (println "Network association can not be deleted but only replaced, thus unable to delete it.")) 
-              :sanitize-ks [:network-acl-association-id]
               :pre-staging-fn #(-> %
                                  ((fn[m]
                                     (assoc m :almonds-tags (create-almonds-tags-for-network-association m))))
@@ -157,7 +152,6 @@
               :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))
               :create-fn aws-ec2/create-subnet
               :validate-fn (constantly true)
-              :sanitize-ks [:available-ip-address-count]
               :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
               :describe-fn aws-ec2/describe-subnets
               :aws-id-key :subnet-id

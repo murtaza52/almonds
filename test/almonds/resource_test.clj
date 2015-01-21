@@ -198,7 +198,7 @@
   (add [{:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}])
   (add test-subnet)
   (get-remote-raw :security-group)
-  (get-remote :eip-assoc)
+  (get-remote :elastic-ip)
   (pull-resource :elastic-ip)
   (add test-vpc)
   (expel)

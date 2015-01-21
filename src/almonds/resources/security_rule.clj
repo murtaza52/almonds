@@ -30,9 +30,7 @@
   :security-group)
 
 (defmethod sanitize :security-rule [m]
-  (-> m
-      (dissoc :ip-ranges :ip-permissions :owner-id :ip-permissions-egress :user-id-group-pairs)
-      (update-in [:group-id] aws-id->almonds-tags)))
+  (update-in m [:group-id] aws-id->almonds-tags))
 
 (defmethod retrieve-all :security-rule [_]
   nil)

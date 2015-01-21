@@ -34,7 +34,7 @@
          ips)))
 
 (defmethod delete :elastic-ip [m]
-  nil)
+  (println "Cannot delete an elastic-ip as can not ascertain its identity. Please use the delete-elastic-ip to explicitly delete it."))
 
 (defn delete-elastic-ip [m]
   (if (ec2-classic? m)

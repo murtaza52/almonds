@@ -203,6 +203,7 @@
   (add test-vpc)
   (expel)
   (diff-tags)
+  (sync-resources)
   (sync-only-create)
   (compare-resources :instance)
   (get-remote-raw :security-group)

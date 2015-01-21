@@ -123,20 +123,16 @@
   (= (apply get-remote almonds-tags) (apply get-local almonds-tags)))
 
 (defn diff-tags [& args]
-  (letfn [(inconsistent-resources [coll]
-            (remove is-consistent? coll))]
-    (->> (data/diff (into #{} (->> (apply get-local-tags args)
-                                   (map #(into #{} %))))
-                    (into #{} (->> (apply get-remote-tags args)
-                                   (map #(into #{} %)))))
-         (into-seq)
-         (zipmap [:only-in-local :only-on-remote :inconsistent])
-         (#(update-in % [:inconsistent] inconsistent-resources)))))
+  (->> (data/diff (into #{} (->> (apply get-local-tags args)
+                                 (map #(into #{} %))))
+                  (into #{} (->> (apply get-remote-tags args)
+                                 (map #(into #{} %)))))
+       (into-seq)
+       (zipmap [:only-in-local :only-on-remote])))
 
 (defn diff [& args]
-  (let [{:keys [inconsistent only-on-remote only-in-local]} (apply diff-tags args)]
-    {:only-in-local (mapcat #(apply get-local %) only-in-local)
-     :inconsistent (mapcat #(apply get-local %) inconsistent)
+  (let [{:keys [only-on-remote only-in-local]} (apply diff-tags args)]
+    {:only-in-local (mapcat #(apply get-local %) only-in-local) 
      :only-on-remote (mapcat #(apply get-remote %) only-on-remote)}))
 
 (defn compare-resources [& args]
@@ -148,9 +144,6 @@
             :on-remote (apply get-remote-raw args)))
 
 ;;;;;;;;;;;;;;; get ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn get-inconsistent [& args]
-  (:inconsistent (apply diff args)))
 
 (defn get-only-remote [& args]
   (:only-on-remote (apply diff args)))
@@ -186,7 +179,6 @@
 
 ;;;;;;;;;;;;;;;;; ops ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 (defn- delete-op! [coll]
   (doseq [r-type delete-sequence]
     (when-let [to-delete (seq (filter-resources coll r-type))]
@@ -220,15 +212,10 @@
   (let [{:keys [only-on-remote]} (apply diff args)]
     (delete-op! only-on-remote)))
 
-(defn sync-only-inconsistent [& args]
-  (let [{:keys [inconsistent]} (apply diff args)]
-    (recreate-op! inconsistent)))
-
 (defn sync-resources [& args]
-  (let [{:keys [only-in-local only-on-remote inconsistent]} (apply diff args)]
+  (let [{:keys [only-in-local only-on-remote]} (apply diff args)]
     (delete-op! only-on-remote)
-    (create-op! only-in-local)
-    (recreate-op! inconsistent)))
+    (create-op! only-in-local)))
 
 (defn recreate [& args]
   (recreate-op! (apply get-remote args)
@@ -241,8 +228,8 @@
 (defn is-terminated? [m]
   (if (= "terminated" (-> m :state :name)) true false))
 
-(is-terminated? {:state {:name "terminated"}})
-(is-terminated? {:s {:name "terminated"}})
+(comment  (is-terminated? {:state {:name "terminated"}})
+          (is-terminated? {:s {:name "terminated"}}))
 
 (defn aws-id [almonds-tags]
   (let [resources (remove is-terminated? (apply get-remote-raw almonds-tags))]

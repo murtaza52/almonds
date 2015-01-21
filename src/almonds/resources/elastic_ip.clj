@@ -23,7 +23,7 @@
   nil)
 
 (defmethod sanitize :elastic-ip [m]
-  m)
+  nil)
 
 (defmethod retrieve-all :elastic-ip [_]
   (let [ips (-> (aws-ec2/describe-addresses) :addresses)]

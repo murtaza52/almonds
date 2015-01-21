@@ -24,7 +24,6 @@
 
 (defmethod sanitize :instance [m]
   (-> m
-      (dissoc :almonds-aws-id :monitoring :root-device-type :private-dns-name :hypervisor :architecture :root-device-name :virtualization-type :product-codes :ami-launch-index :state-transition-reason :network-interfaces :kernel-id :public-dns-name :private-ip-address :placement :client-token :public-ip-address :block-device-mappings :state :tags :instantce-id :launch-time)
       (update-in [:security-groups] 
                  (fn[groups]
                    (map #(-> % :group-id aws-id->almonds-tags) groups)))))
@@ -38,7 +37,7 @@
 (comment (retrieve-all {:almonds-type :instance}))
 
 (defmethod delete :instance [m]
-  (aws-ec2/delete-security-group {:group-id (aws-id (:almonds-tags m))}))
+  (aws-ec2/terminate-instances {:instance-ids [(aws-id (:almonds-tags m))]}))
 
 (defmethod aws-id-key :instance [_]
   :instance-id)

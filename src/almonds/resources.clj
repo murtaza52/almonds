@@ -11,8 +11,6 @@
 (defmethod prepare-almonds-tags :default [resource]
   (default-prepare-almonds-tags resource))
 
-
-
 (defresource {:resource-type :customer-gateway
               :create-map #(hash-map :type "ipsec.1" :bgp-asn (:bgp-asn %) :public-ip (:ip-address %))
               :create-fn aws-ec2/create-customer-gateway
@@ -59,10 +57,10 @@
   (doall
    (map (fn[association]
           (-> association
-            (merge {:almonds-type :network-acl-association
-                    :network-acl-id (:almonds-tags acl)
-                    :subnet-id (aws-id->almonds-tags (:subnet-id association))})
-            (#(merge % {:almonds-tags (create-almonds-tags-for-network-association %)}))))
+              (merge {:almonds-type :network-acl-association
+                      :network-acl-id (:almonds-tags acl)
+                      :subnet-id (aws-id->almonds-tags (:subnet-id association))})
+              (#(merge % {:almonds-tags (create-almonds-tags-for-network-association %)}))))
         associations)))
 
 (defresource {:resource-type :network-acl
@@ -166,26 +164,3 @@
               :delete-fn aws-ec2/delete-subnet
               :dependents-fn (constantly '())
               :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
-
-;; (defresource {:resource-type :instance
-;;               :create-map #(hash-map :availability-zone (:availability-zone %) :cidr-block (:cidr-block %) :vpc-id (aws-id (:vpc-id %)))
-;;               :create-fn aws-ec2/create-subnet
-;;               :validate-fn (constantly true)
-;;               :sanitize-ks [:available-ip-address-count]
-;;               :sanitize-fn #(update-in % [:vpc-id] aws-id->almonds-tags)
-;;               :describe-fn-alternate (fn[]
-;;                                        (->> (aws-ec2/describe-instances)
-;;                                             vals
-;;                                             first
-;;                                             (mapcat vals)
-;;                                             (map first)))
-;;               :aws-id-key :subnet-id
-;;               :delete-fn aws-ec2/delete-subnet
-;;               :dependents-fn (constantly '())
-;;               :pre-staging-fn (fn[m] (add-type-to-tags :vpc-id :vpc m))})
-
-;; (aws-ec2/describe-instances)
-
-{:ami-id "ami-2058e248"
- :availability-zone "us-east-1b"
- }

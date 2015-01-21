@@ -17,13 +17,55 @@
 
 (comment (drop-from-remote-state :vpc))
 
-(defn add-to-remote-state [resources]
-  (let [coll (->> resources
-                  (map add-almonds-keys)
-                  (map add-almonds-aws-id)
-                  ((fn [coll] (concat coll (doall (mapcat dependents coll))))))]
-    (swap! remote-state #(concat % coll))
-    coll))
+(defn add-keys [resource]
+  (-> resource
+      add-almonds-keys
+      add-almonds-aws-id))
+
+(comment (add-keys {:group-id "sg-49619b24",
+                    :group-name "Security_Group; 2; Classic",
+                    :ip-permissions [{:ip-protocol "tcp", :from-port 7015, :to-port 7015, :user-id-group-pairs [], :ip-ranges ["27.0.0.0/0"]}],
+                    :tags
+                    [{:value "#{:security-group 2 :classic}", :key ":almonds-tags"}
+                     {:value "Security_Group; 2; Classic", :key "Name"}
+                     {:value ":security-group", :key ":almonds-type"}],
+                    :description "Security_Group; 2; Classic",
+                    :owner-id "790378854888",
+                    :ip-permissions-egress []}))
+
+(defn retrieve-resource [almonds-type]
+  (->> {:almonds-type almonds-type}
+       (retrieve-all)
+       (map add-keys)))
+
+(comment (retrieve-resource :network-acl))
+
+(defn retrieve-dependents [resources]
+  (->> resources
+       (map dependents)
+       (remove nil?)
+       (remove empty?)
+       flatten))
+
+(comment (retrieve-dependents [{:description "Security_Group; 2; Classic",
+                                :tags
+                                [{:key ":almonds-tags", :value "#{:security-group 2 :classic}"}
+                                 {:key "Name", :value "Security_Group; 2; Classic"}
+                                 {:key ":almonds-type", :value ":security-group"}],
+                                :ip-permissions [{:ip-protocol "tcp", :from-port 7015, :to-port 7015, :user-id-group-pairs [], :ip-ranges ["27.0.0.0/0"]}],
+                                :group-id "sg-49619b24",
+                                :almonds-tags #{:security-group 2 :classic},
+                                :almonds-type :security-group,
+                                :group-name "Security_Group; 2; Classic",
+                                :ip-permissions-egress [],
+                                :owner-id "790378854888",
+                                :almonds-aws-id "sg-49619b24"}]))
+
+(defn retrieve-resource-and-deps [almonds-type]
+  (let [resources (retrieve-resource almonds-type)]
+    (concat resources (retrieve-dependents resources))))
+
+(comment (retrieve-resource-and-deps :security-group))
 
 (defn pull-resource [almonds-type]
   (doall (map drop-from-remote-state (dependent-types {:almonds-type almonds-type})))
@@ -32,13 +74,13 @@
     (do 
       (println "Pulling almonds-type" almonds-type)
       (drop-from-remote-state almonds-type)
-      (add-to-remote-state (retrieve-all {:almonds-type almonds-type})))))
+      (swap! remote-state #(concat %
+                                   (retrieve-resource-and-deps almonds-type))))))
 
 (comment (pull-resource :network-acl))
 
 (defn sanitize-resources [resources]
   (->> resources
-       (filter #(:almonds-tags %))
        (filter #(:almonds-type %))
        (map sanitize)))
 
@@ -128,10 +170,6 @@
       (swap! local-state merge {(:almonds-tags prepared-resource)
                                 prepared-resource}))))
 
-(-> {:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}
-    prepare-almonds-tags
-    pre-staging)
-
 (defn add [resources]
   (if (map? resources)
     (add-resource resources)
@@ -200,8 +238,14 @@
   (delete-op! (apply get-local args))
   (apply expel args))
 
+(defn is-terminated? [m]
+  (if (= "terminated" (-> m :state :name)) true false))
+
+(is-terminated? {:state {:name "terminated"}})
+(is-terminated? {:s {:name "terminated"}})
+
 (defn aws-id [almonds-tags]
-  (let [resources (apply get-remote-raw almonds-tags)]
+  (let [resources (remove is-terminated? (apply get-remote-raw almonds-tags))]
     (when-not (seq resources) (throw+ {:operation 'aws-id
                                        :args (print-str almonds-tags)
                                        :msg "Unable to find aws-id for the given almonds-tags."}))

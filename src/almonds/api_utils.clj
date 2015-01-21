@@ -12,7 +12,12 @@
                             (into #{} args)))
            coll)))
 
-(comment (filter-resources @remote-state :vpc))
+(comment (filter-resources @remote-state :security-group))
 (comment (filter-resources nil))
+
+(defn ec2-classic? [m]
+  (if (= (:domain m) "standard") true false))
+
+(ec2-classic? {:domain "standarda"})
 
 

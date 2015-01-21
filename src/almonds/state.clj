@@ -4,13 +4,13 @@
 (def remote-state (atom {}))
 
 (def create-sequence
-  [:customer-gateway :vpc :security-group :security-rule :subnet :network-acl :network-acl-entry :network-acl-association :instance])
+  [:customer-gateway :vpc :security-group :security-rule :subnet :network-acl :network-acl-entry :network-acl-association :instance :elastic-ip :eip-assoc])
 
 (def pull-sequence
-  [:customer-gateway :vpc :security-group :subnet :network-acl :instance])
+  [:customer-gateway :vpc :security-group :subnet :network-acl :instance :elastic-ip])
 
 (def delete-sequence
-  [:security-rule :security-group :subnet :network-acl-association :network-acl-entry :network-acl :vpc :customer-gateway :instance])
+  [:instance :security-rule :security-group :subnet :network-acl-association :network-acl-entry :network-acl :vpc :customer-gateway :eip-assoc :elastic-ip])
 
 (def already-retrieved-remote? (atom false))
 

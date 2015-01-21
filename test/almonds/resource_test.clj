@@ -70,8 +70,6 @@
 
 
 
-
-
 (def my-resources [{:almonds-type :vpc
                     :almonds-tags [:sandbox :web-tier]
                     :cidr-block "10.2.0.0/16"
@@ -182,6 +180,8 @@
                 :instance-initiated-shutdown-behavior "stop"
                 :image-id "ami-66d0b40e"})
 
+(def eip-assoc {:almonds-type :eip-assoc :instance-id [:dev-box 2] :public-ip "107.22.188.118"})
+
 ;;(aws-id #{:app-box :web-tier :sandbox :security-group})
 ;;(aws-id #{:sandbox :web-tier :vpc})
 
@@ -193,43 +193,39 @@
 
 (comment
   (pull)
-  (add [test-vpc test-subnet test-acl acl-entry acl-association security-group-classic security-rule2 instance2])
+  (add [test-vpc test-subnet test-acl acl-entry acl-association security-group-classic security-rule2 instance2 eip-assoc])
   (add security-group)
   (add [{:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}])
   (add test-subnet)
-  (get-local :security-group)
-  (get-remote :instance)
-  (pull-resource :security-group)
+  (get-remote-raw :security-group)
+  (get-remote :eip-assoc)
+  (pull-resource :elastic-ip)
   (add test-vpc)
   (expel)
   (diff-tags)
-  (sync-resources)
-  (sync-only-delete)
+  (sync-only-create)
   (compare-resources :instance)
-  (recreate)
   (get-remote-raw :security-group)
   (clear-all)
   (sync-only-create)
   (set-already-retrieved-remote)
   (delete-deps-aws-id "vpc-b61f7cd3")
   (delete-resources)
-  (pull-resource :security-group)
+  (pull-resource :network-acl)
   (pull)
-
+  (recreate)
+  (dependents {:almonds-tags #{:elastic-ip "107.22.188.118"}, :almonds-type :elastic-ip, :domain "standard", :public-ip "107.22.188.118", :instance-id ""})
   (dependent-types {:almonds-type :network-acl-entry})
   
   (aws-id #{:security-group 2 :classic})
-  
+  (aws-id #{:instance 2 :dev-box})
   (create (first (get-local :security-group)))
   @remote-state)
-
 
 ;; remove inconsistent 
 ;; select -> :data-source :local / atom / file, :tags [:a :b], :flags [:only-in-local :only-in-remote :inverse :tags :compare], 
 ;; apply operation - create / delete / recreate
 ;; 
-
-
 
 ;; write the example below in clojure, shell / json, ruby.
 

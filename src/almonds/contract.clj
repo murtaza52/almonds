@@ -1,6 +1,5 @@
 (ns almonds.contract
-  (:require [slingshot.slingshot :refer [throw+]]
-            [clojure.data.json :refer [write-str]]))
+  (:require [slingshot.slingshot :refer [throw+]]))
 
 (defmacro defmulti-with-default [name]
   `(do

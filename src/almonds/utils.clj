@@ -1,14 +1,21 @@
 (ns almonds.utils
   (:require [clojure.set :refer [difference intersection]]
-            [clojure.pprint :refer [pprint]]
-            [cheshire.core :refer [generate-string]]
+            [clojure.pprint :refer [pprint]] 
             [camel-snake-kebab.core :as kebab]
             [amazonica.aws.ec2 :as aws-ec2]
             [almonds.contract :refer :all]
             [schema.core :as schema]
             [almonds.state :refer :all]
-            [slingshot.slingshot :refer [try+]]
-            [clojure.edn :as edn]))
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [slingshot.slingshot :refer [throw+ try+]]))
+
+(defn remove-empty [coll]
+  (->> coll
+       (remove #(if (coll? %) (empty? %) false))
+       (remove nil?)))
+
+(remove-empty [:a nil [] :b])
 
 (defn remove-nils-from-tags [coll]
   (into #{}
@@ -133,7 +140,7 @@
          (safe-reader "{:a 2}"))
 
 (defn create-tags [resource-id tags]
-  (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags)))
+  (when verbose-mode? (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags))))
   (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
 
 (defn create-aws-tags [id m]
@@ -230,3 +237,32 @@
   (into #{} coll))
 
 (into-set [:a :b])
+
+(defn file-exists? [path]
+  (.exists (io/file path)))
+
+(defn read-file [path]
+  (if (file-exists? path)
+    (safe-reader (slurp path))
+    (throw+ {:msg "File does not exist at the specified path. Please provide a valid file path."})))
+
+(comment (read-file "/Users/murtaza/almonds_commands.clj"))
+
+(defn read-resource [resource]
+  (if (string? resource)
+    (read-file resource)
+    resource))
+
+(comment (read-resource [:a :v]))
+
+(defn resource-type? [v]
+  (let [tags (if (map? v) (:almonds-tags v) v )]
+    (-> (intersection (into-set tags) (into-set create-sequence))
+        first)))
+
+(comment (resource-type? [:instance :a])
+         (resource-type? {:almonds-tags #{:a :security-rule}}))
+
+(defn group-by-resource [coll] (group-by resource-type? coll))
+
+(comment (group-by-resource [[:instance :b] [:instance :c] [:security-group 5]]))

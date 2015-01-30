@@ -1,21 +1,15 @@
 (ns user
-  (:require [clojure.tools.namespace.repl :refer [refresh]]
-            [environ.core :refer [env]]
-            [clojure.tools.trace :refer :all]))
-
-(almonds.core/set-aws-credentials (env :aws-access-key) (env :aws-secret) "https://ec2.amazonaws.com")
+  (:require [environ.core :refer [env]]
+            [almonds.api :as api]))
 
 (require 'almonds.core :reload) ;; for compilation of macros
 
-(def config {:log-ec2-calls false})
+(def config {:log-ec2-calls false
+             :verbose-mode true})
 
-(almonds.core/set-config config)
+(api/set-aws-credentials (-> env :aws :access-key) (-> env :aws :secret))
+(api/set-aws-region (-> env :aws :region))
 
-(def all-ns '[almonds.resource almonds.state almonds.api almonds.contract almonds.resources almonds.resources.security-rule almonds.resources.security-group])
 
-;;(trace-ns almonds.api)
 
-;; (for [v all-ns]
-;;   (trace-ns v))
-
-;;(trace-ns)
+(api/set-config config)

@@ -2,36 +2,49 @@
   (:require [almonds.state :refer :all]
             [almonds.contract :refer :all]
             [almonds.utils :refer :all]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [clojure.data :as data]
             [clojure.set :refer [difference intersection]]
-            [almonds.api-utils :refer :all]))
+            [almonds.api-utils :refer :all]
+            [amazonica.core :as aws-core :refer [defcredential]]
+            [almonds.handler :as handler]))
 
-(defn drop-from-remote-state [almonds-type]
-  (swap! remote-state
-         (fn[coll]
-           (remove
-            (fn[resource]
-              (= almonds-type (:almonds-type resource)))
-            coll))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; config ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(comment (drop-from-remote-state :vpc))
+(defn set-config [{:keys [log-ec2-calls verbose-mode] :or [false false]}]
+  (reset! handler/log-ec2-calls log-ec2-calls)
+  (reset! verbose-mode-state verbose-mode))
 
-(defn add-keys [resource]
-  (-> resource
-      add-almonds-keys
-      add-almonds-aws-id))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; credentials ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(comment (add-keys {:group-id "sg-49619b24",
-                    :group-name "Security_Group; 2; Classic",
-                    :ip-permissions [{:ip-protocol "tcp", :from-port 7015, :to-port 7015, :user-id-group-pairs [], :ip-ranges ["27.0.0.0/0"]}],
-                    :tags
-                    [{:value "#{:security-group 2 :classic}", :key ":almonds-tags"}
-                     {:value "Security_Group; 2; Classic", :key "Name"}
-                     {:value ":security-group", :key ":almonds-type"}],
-                    :description "Security_Group; 2; Classic",
-                    :owner-id "790378854888",
-                    :ip-permissions-egress []}))
+(defn is-connected? []
+  (try+
+   (amazonica.aws.ec2/describe-regions)
+   (catch Object _
+     (throw+ {:type :almonds/aws-connection-error :cause :almonds/aws-connection-error :msg "Unable to connect to AWS. Either check the credentials or the network connectivity. (describeRegions is used for checking the validity of the credentials. Your user should have sufficient permissions to perform this operation.)"}))))
+
+(defn set-aws-credentials [aws-access-key aws-secret]
+ (reset! aws-creds {:access-key aws-access-key :secret aws-secret}))
+
+(defn set-aws-region [region]
+  (defcredential (:access-key @aws-creds) (:secret @aws-creds) region)
+  (is-connected?))
+
+(comment (set-aws-credentials "a" "b")
+         (set-aws-region "c")
+         (amazonica.aws.ec2/describe-regions))
+
+;;;;;;;;;;;;;;; clear states ;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn clear-all []
+  (reset! already-retrieved-remote? false)
+  (doseq [state [local-state remote-state]]
+    (reset! state {})))
+
+(defn clear-remote-state []
+  (reset! remote-state {}))
+
+;;;;;;;;;;;;;;;;;;;;; retrieve resources ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn retrieve-resource [almonds-type]
   (->> {:almonds-type almonds-type}
@@ -72,7 +85,7 @@
   (if (is-dependent? {:almonds-type almonds-type})
     (pull-resource (parent-type {:almonds-type almonds-type}))
     (do 
-      (println "Pulling almonds-type" almonds-type)
+      (when verbose-mode? (println "Pulling almonds-type" almonds-type))
       (drop-from-remote-state almonds-type)
       (swap! remote-state #(concat %
                                    (retrieve-resource-and-deps almonds-type))))))
@@ -95,10 +108,12 @@
 
 (defn get-remote-raw [& args]
   (when (take-pull?) (pull))
-  (apply filter-resources @remote-state args))
+  (remove-empty (apply filter-resources @remote-state args)))
 
 (defn get-remote [& args]
-  (sanitize-resources (apply get-remote-raw args)))
+  (-> (apply get-remote-raw args)
+      sanitize-resources
+      remove-empty))
 
 (defn get-remote-tags [& args]
   (->> (apply get-remote args)
@@ -153,26 +168,31 @@
 
 ;;;;;;;;;;;; functions for manipulating state ;;;;;;;;;;;;;;;;;;;
 
-(defn add-resource
+(defn- add-resource
   [resource]
   (when (validate resource)
     (let [prepared-resource (-> resource
                                 prepare-almonds-tags
-                                pre-staging)]
-      (doall (map add-resource (get-default-dependents prepared-resource)))
+                                pre-staging)
+          deps (get-default-dependents prepared-resource)]
+      (doall (map add-resource deps))
       (swap! local-state merge {(:almonds-tags prepared-resource)
-                                prepared-resource}))))
+                                prepared-resource})
+      (concat [prepared-resource] deps))))
 
-(defn add [resources]
-  (if (map? resources)
-    (add-resource resources)
-    (last (map add-resource resources))))
-
-(defn expel-resource [resource]
+(defn- expel-resource [resource]
   (swap! local-state
          #(dissoc %
                   (:almonds-tags
                    (prepare-almonds-tags resource)))))
+
+(defn add [v]
+  (let [resources (read-resource v)]
+    (if (map? resources)
+      (add-resource resources)
+      (flatten (doall (map add-resource resources))))))
+
+(comment (add "/Users/murtaza/almonds_stack.clj"))
 
 (defn expel [& args]
   (first (map expel-resource (apply get-local args))))
@@ -183,7 +203,7 @@
   (doseq [r-type delete-sequence]
     (when-let [to-delete (seq (filter-resources coll r-type))]
       (doseq [v to-delete]
-        (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))
+        (when verbose-mode? (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v))))
         (delete v))
       (pull-resource r-type))))
 
@@ -191,8 +211,8 @@
   (doseq [r-type create-sequence]
     (when-let [to-create (seq (filter-resources coll r-type))]
       (doseq [v to-create]
-        (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
-        (println (print-str v))
+        (when verbose-mode? (do (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
+                                (println (print-str v))))
         (create v))
       (pull-resource r-type))))
 
@@ -204,20 +224,20 @@
 
 ;;;;;;;;;;; apply fns ;;;;;;;;;;;;;;;;;;;;;;
 
-(defn sync-only-create [& args]
+(defn sync-only-to-create [& args]
   (let [{:keys [only-in-local]} (apply diff args)]
     (create-op! only-in-local)))
 
-(defn sync-only-delete [& args]
+(defn sync-only-to-delete [& args]
   (let [{:keys [only-on-remote]} (apply diff args)]
     (delete-op! only-on-remote)))
 
-(defn sync-resources [& args]
+(defn sync-all [& args]
   (let [{:keys [only-in-local only-on-remote]} (apply diff args)]
     (delete-op! only-on-remote)
     (create-op! only-in-local)))
 
-(defn recreate [& args]
+(defn recreate-resources [& args]
   (recreate-op! (apply get-remote args)
                 (apply get-local args)))
 
@@ -225,11 +245,8 @@
   (delete-op! (apply get-local args))
   (apply expel args))
 
-(defn is-terminated? [m]
-  (if (= "terminated" (-> m :state :name)) true false))
-
-(comment  (is-terminated? {:state {:name "terminated"}})
-          (is-terminated? {:s {:name "terminated"}}))
+(defn create-resources [& args]
+  (create-op! (apply get-local args)))
 
 (defn aws-id [almonds-tags]
   (let [resources (remove is-terminated? (apply get-remote-raw almonds-tags))]
@@ -253,6 +270,8 @@
                            :args (print-str aws-id)
                            :msg "Unable to find almonds-tags for the given aws-id."}))))
 
+(comment  (aws-id #{:security-group 2 :classic})
+          (aws-id #{:instance 2 :dev-box}))
 
 
 (defn find-deps-aws-id [id]
@@ -273,4 +292,3 @@
 
 (defn delete-deps-aws-id [id]
   (delete-op! (find-deps-aws-id id)))
-

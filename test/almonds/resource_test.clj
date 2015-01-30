@@ -5,7 +5,7 @@
             [schema.core :as schema]
             [almonds.contract :refer :all]
             [almonds.state :refer :all]
-            [almonds.core :refer [set-aws-credentials]]))
+            [almonds.api-data :refer :all]))
 
 ;; ;; 10 sec overview 
 
@@ -20,9 +20,9 @@
 
 ;; (diff)
 
-;; (sync-resources :vpc :sandbox)
+;; (sync-all :vpc :sandbox)
 
-;; (sync-only-create)
+;; (sync-only-to-create)
 
 ;; (get-local-tags)
 
@@ -42,7 +42,7 @@
 
 ;; (diff-tags)
 
-;; (sync-resources)
+;; (sync-all)
 
 ;; (get-local :vpc)
 ;; (get-remote :vpc)
@@ -194,32 +194,30 @@
 (comment
   (pull)
   (add [test-vpc test-subnet test-acl acl-entry acl-association security-group-classic security-rule2 instance2 eip-assoc])
+  (add "/Users/murtaza/almonds_stack.clj")
   (add security-group)
   (add [{:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}])
   (add test-subnet)
-  (get-remote-raw :security-group)
-  (get-remote :elastic-ip)
+  (get-remote-raw :elastic-ip)
+  (get-local :classic)
   (pull-resource :elastic-ip)
-  (add test-vpc)
-  (expel)
+  (expel :eip-assoc)
   (diff-tags)
-  (sync-resources)
-  (sync-only-create)
+  (sync-all :cla)
+  (sync-only-to-create)
   (compare-resources :instance)
   (get-remote-raw :security-group)
   (clear-all)
-  (sync-only-create)
+  (sync-only-to-create)
   (set-already-retrieved-remote)
   (delete-deps-aws-id "vpc-b61f7cd3")
   (delete-resources)
   (pull-resource :network-acl)
   (pull)
-  (recreate)
+  (recreate-resources)
   (dependents {:almonds-tags #{:elastic-ip "107.22.188.118"}, :almonds-type :elastic-ip, :domain "standard", :public-ip "107.22.188.118", :instance-id ""})
   (dependent-types {:almonds-type :network-acl-entry})
   
-  (aws-id #{:security-group 2 :classic})
-  (aws-id #{:instance 2 :dev-box})
   (create (first (get-local :security-group)))
   @remote-state)
 

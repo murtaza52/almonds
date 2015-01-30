@@ -14,14 +14,12 @@
 
 (def already-retrieved-remote? (atom false))
 
-;;;;;;;;;;;;;;; clear states ;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn clear-all []
-  (reset! already-retrieved-remote? false)
-  (doseq [state [local-state remote-state]]
-    (reset! state {})))
-
-(defn clear-remote-state []
-  (reset! remote-state {}))
-
 (def set-already-retrieved-remote #(reset! already-retrieved-remote? true))
+
+(def verbose-mode-state (atom false))
+
+(defn verbose-mode? [] @verbose-mode-state)
+
+(def aws-creds (atom {}))
+
+(def stack (atom :default))

@@ -3,7 +3,8 @@
             [almonds.utils :refer :all]
             [almonds.pprint-op :refer [pprint-op]]
             [slingshot.slingshot :refer [try+ throw+]]
-            [almonds.state :as state]))
+            [almonds.state :as state]
+            [clojure.pprint :refer [pprint]]))
 
 (defn print-results [cmds results]
   (newline)

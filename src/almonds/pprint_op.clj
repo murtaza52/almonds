@@ -40,7 +40,7 @@
         (doseq [r (group-by-resource only-on-remote)] 
           (print-resource-group r))))
   
-  (when (seq only-on-local)
+    (when (seq only-on-local)
     (do (println (str "The following resources have been defined locally and do not exists on the cloud provider" print-str "Running sync-resources will create them :"))
         (doseq [r (group-by-resource only-on-local)] 
           (print-resource-group r))))

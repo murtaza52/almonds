@@ -41,7 +41,8 @@
                                          (drop-val :network-acl (:almonds-tags m))
                                          #{:network-acl-entry (rule-type (:egress acl-entry)) (:rule-number acl-entry)}))
                     :network-acl-id (:almonds-tags m)})
-            (update-in [:protocol] get-protocol-keyword)))
+            (update-in [:protocol] get-protocol-keyword)
+            (add-stack-key (:almonds-stack m))))
         entries)))
 
 (defn create-almonds-tags-for-network-association [m]
@@ -58,7 +59,8 @@
               (merge {:almonds-type :network-acl-association
                       :network-acl-id (:almonds-tags acl)
                       :subnet-id (aws-id->almonds-tags (:subnet-id association))})
-              (#(merge % {:almonds-tags (create-almonds-tags-for-network-association %)}))))
+              (#(merge % {:almonds-tags (create-almonds-tags-for-network-association %)}))
+              (add-stack-key (:almonds-stack acl))))
         associations)))
 
 (defresource {:resource-type :network-acl
@@ -128,14 +130,14 @@
       first
       :network-acl-association-id)))
 
-(comment (get-network-acl-association-id [:sandbox :web-tier :web-server :subnet]))
+(comment (get-network-acl-association-id [:sandbox :web-tier :web-server]))
 
 (defresource {:resource-type :network-acl-association
               :create-map (fn[m]
                             (-> m
                               (update-in [:network-acl-id] aws-id)
                               (assoc :association-id (get-network-acl-association-id (:subnet-id m)))
-                              (dissoc :almonds-type :almonds-tags :subnet-id)))
+                              (dissoc :almonds-type :almonds-tags :subnet-id :almonds-stack)))
               :create-fn aws-ec2/replace-network-acl-association
               :delete-fn-alternate (fn[m]
                                      (println "Network association can not be deleted but only replaced, thus unable to delete it.")) 

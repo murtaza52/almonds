@@ -69,29 +69,6 @@
 
 
 
-
-(def my-resources [{:almonds-type :vpc
-                    :almonds-tags [:sandbox :web-tier]
-                    :cidr-block "10.2.0.0/16"
-                    :instance-tenancy "default"}
-
-                   {:almonds-type :vpc
-                    :almonds-tags [:sandbox :app-tier]
-                    :cidr-block "10.5.0.0/16"
-                    :instance-tenancy "default"}
-
-                   {:almonds-type :subnet
-                    :almonds-tags [:sandbox :web-tier :web-server]
-                    :cidr-block "10.2.11.0/25"
-                    :availability-zone "us-east-1b"
-                    :vpc-id [:sandbox :web-tier]}
-
-                   {:almonds-type :subnet
-                    :almonds-tags [:sandbox :app-tier :app-server]
-                    :cidr-block "10.5.0.0/26"
-                    :availability-zone "us-east-1b"
-                    :vpc-id [:sandbox :app-tier]}])
-
 (def test-subnet {:almonds-type :subnet
                   :almonds-tags [:sandbox :web-tier :web-server]
                   :cidr-block "10.3.11.0/25"
@@ -119,13 +96,6 @@
                :instance-tenancy "default"})
 
 
-;; add resources
-;; (add [test-vpc test-subnet test-acl acl-entry acl-association])
-
-;; (diff-tags)
-
-;; (expel :vpc)
-
 (def security-group-2 {:vpc-id [:sandbox :web-tier]
                        :description "Almonds test security group"
                        :group-name "test security group"
@@ -138,6 +108,9 @@
 
 (def security-group-classic {:almonds-type :security-group
                              :almonds-tags [:classic 2]})
+
+(def security-group-classic-dev {:almonds-type :security-group
+                                 :almonds-tags [:classic 2 :dev-stack]})
 
 (def security-rule {:group-id [:sandbox :web-tier :app-box]
                     :egress false
@@ -182,37 +155,31 @@
 
 (def eip-assoc {:almonds-type :eip-assoc :instance-id [:dev-box 2] :public-ip "107.22.188.118"})
 
-;;(aws-id #{:app-box :web-tier :sandbox :security-group})
-;;(aws-id #{:sandbox :web-tier :vpc})
-
-;;(aws-ec2/authorize-security-group-ingress security-rule2)
-
-;;(add [test-vpc test-subnet test-acl acl-entry acl-association])
-
-;;(aws-id->almonds-tags "sg-0760a463")
 
 (comment
+  ;;(aws-ec2/describe-regions)
   (pull)
-  (add [test-vpc test-subnet test-acl acl-entry acl-association security-group-classic security-rule2 instance2 eip-assoc])
+  (add [test-vpc test-subnet test-acl acl-entry security-group-classic security-rule2])
+  (add security-group-classic-dev)
   (add "/Users/murtaza/almonds_stack.clj")
   (add security-group)
   (add [{:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}])
   (add test-subnet)
-  (get-remote-raw :elastic-ip)
-  (get-local :classic)
+  (count (get-remote-raw :instance 2 :dev-box))
+  (get-local)
   (pull-resource :elastic-ip)
-  (expel :eip-assoc)
+  (expel)
   (diff-tags)
-  (sync-all :cla)
+  (sync-all)
   (sync-only-to-create)
   (compare-resources :instance)
-  (get-remote-raw :security-group)
+  (get-remote)
   (clear-all)
-  (sync-only-to-create)
+  (sync-only-to-delete)
   (set-already-retrieved-remote)
   (delete-deps-aws-id "vpc-b61f7cd3")
   (delete-resources)
-  (pull-resource :network-acl)
+  (pull :security-rule)
   (pull)
   (recreate-resources)
   (dependents {:almonds-tags #{:elastic-ip "107.22.188.118"}, :almonds-type :elastic-ip, :domain "standard", :public-ip "107.22.188.118", :instance-id ""})
@@ -220,6 +187,30 @@
   
   (create (first (get-local :security-group)))
   @remote-state)
+
+(comment 
+
+  (defn HamaraList [first-one & all]
+    (reify
+      clojure.lang.ISeq
+      (next [this] all)
+      (first [this] first-one)
+      (seq [this] (cons first-one all))
+      (more [this] all)
+      Object
+      (toString [this] (print-str (cons first-one all)))))
+
+  (def my-list (HamaraList 1 2 3))
+
+  (count my-list)
+  (first my-list)
+  (rest my-list)
+
+  (do)
+  (-> (map println my-list)
+      first))
+
+
 
 ;; remove inconsistent 
 ;; select -> :data-source :local / atom / file, :tags [:a :b], :flags [:only-in-local :only-in-remote :inverse :tags :compare], 

@@ -10,6 +10,6 @@
 (api/set-aws-credentials (-> env :aws :access-key) (-> env :aws :secret))
 (api/set-aws-region (-> env :aws :region))
 
-
+(api/set-stack :default)
 
 (api/set-config config)

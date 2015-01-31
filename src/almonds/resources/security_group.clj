@@ -69,7 +69,8 @@
        (map #(assoc % :group-id (:almonds-tags m)))
        (map #(assoc % :almonds-type :security-rule))
        (map prepare-almonds-tags)
-       (map #(assoc % :group-id (:group-id m)))))
+       (map #(assoc % :group-id (:group-id m)))
+       (map #(add-stack-key % (:almonds-stack m)))))
 
 (comment (get-rules a))
 

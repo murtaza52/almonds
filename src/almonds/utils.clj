@@ -108,9 +108,10 @@
 
 (comment (tags->name [:a :b-c 2]))
 
-(defn almonds-tags [{:keys [almonds-tags almonds-type tags] :or {tags {}}}]
+(defn almonds-tags [{:keys [almonds-tags almonds-type almonds-stack tags] :or {tags {}}}]
   (merge {:almonds-tags (print-str almonds-tags)
           :almonds-type (print-str almonds-type)
+          :almonds-stack (print-str almonds-stack)
           "Name" (tags->name almonds-tags)}
          tags))
 
@@ -123,7 +124,7 @@
 (comment
   (almonds->aws-tags {:hi "abc" "Name4" "qwe"})
   (aws->almonds-tags [{:key ":name", :value "qwe"} {:key ":almonds-tags", :value "[:a :b]"}])
-  (almonds-tags {:almonds-type :customer-gateway :almonds-tags [:a :b] :tags {"Name2" "hi"}})
+  (almonds-tags {:almonds-type :customer-gateway :almonds-tags [:a :b] :almonds-stack :dev :tags {"Name2" "hi"}})
   (id->name :g3))
 
 (defn safe-reader [v]
@@ -150,13 +151,14 @@
     (create-tags id)))
 
 (defn add-almonds-keys [m]
-  (let [{:keys [almonds-tags almonds-type]} (aws->almonds-tags (:tags m))]
-    (if (and almonds-tags almonds-type) 
-      (merge m {:almonds-tags almonds-tags :almonds-type almonds-type})
+  (let [{:keys [almonds-tags almonds-type almonds-stack]} (aws->almonds-tags (:tags m))]
+    (if (and almonds-tags almonds-type almonds-stack) 
+      (merge m {:almonds-tags almonds-tags :almonds-type almonds-type :almonds-stack almonds-stack})
       m)))
 
 (comment (add-almonds-keys {:vpc-id 2 :tags [{:key ":almonds-tags" :value "[:a :b]"}
-                                             {:key ":almonds-type" :value ":vpc"}]})
+                                             {:key ":almonds-type" :value ":vpc"}
+                                             {:key ":almonds-stack" :value ":dev"}]})
          (add-almonds-keys {:vpc-id 2}))
 
 (defn add-almonds-aws-id [m]
@@ -213,7 +215,7 @@
       (update-in [:almonds-tags] (fn[tags] (into #{} tags)))
       (add-type-to-tags)))
 
-(default-prepare-almonds-tags {:almonds-tags [:a] :almonds-type :abc})
+(comment (default-prepare-almonds-tags {:almonds-tags [:a] :almonds-type :abc}))
 
 (defn default-acl-entry? [{:keys [rule-number]}]
   (>= rule-number 32767))
@@ -266,3 +268,9 @@
 (defn group-by-resource [coll] (group-by resource-type? coll))
 
 (comment (group-by-resource [[:instance :b] [:instance :c] [:security-group 5]]))
+
+(defn add-stack-key
+  ([resource]
+   (add-stack-key resource (get-stack)))
+  ([resource stack]
+   (assoc resource :almonds-stack stack)))

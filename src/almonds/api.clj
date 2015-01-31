@@ -24,7 +24,7 @@
      (throw+ {:type :almonds/aws-connection-error :cause :almonds/aws-connection-error :msg "Unable to connect to AWS. Either check the credentials or the network connectivity. (describeRegions is used for checking the validity of the credentials. Your user should have sufficient permissions to perform this operation.)"}))))
 
 (defn set-aws-credentials [aws-access-key aws-secret]
- (reset! aws-creds {:access-key aws-access-key :secret aws-secret}))
+  (reset! aws-creds {:access-key aws-access-key :secret aws-secret}))
 
 (defn set-aws-region [region]
   (defcredential (:access-key @aws-creds) (:secret @aws-creds) region)
@@ -44,6 +44,8 @@
 (defn clear-remote-state []
   (reset! remote-state {}))
 
+(defn set-stack [v] (reset! stack v))
+
 ;;;;;;;;;;;;;;;;;;;;; retrieve resources ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn retrieve-resource [almonds-type]
@@ -62,47 +64,52 @@
 
 (comment (retrieve-dependents [{:description "Security_Group; 2; Classic",
                                 :tags
-                                [{:key ":almonds-tags", :value "#{:security-group 2 :classic}"}
-                                 {:key "Name", :value "Security_Group; 2; Classic"}
-                                 {:key ":almonds-type", :value ":security-group"}],
+                                [{:value "#{:security-group 2 :classic}", :key ":almonds-tags"}
+                                 {:value ":default", :key ":almonds-stack"}
+                                 {:value "Security_Group; 2; Classic", :key "Name"}
+                                 {:value ":security-group", :key ":almonds-type"}],
                                 :ip-permissions [{:ip-protocol "tcp", :from-port 7015, :to-port 7015, :user-id-group-pairs [], :ip-ranges ["27.0.0.0/0"]}],
-                                :group-id "sg-49619b24",
+                                :group-id "sg-c104c6ac",
                                 :almonds-tags #{:security-group 2 :classic},
                                 :almonds-type :security-group,
+                                :almonds-stack :default,
                                 :group-name "Security_Group; 2; Classic",
                                 :ip-permissions-egress [],
                                 :owner-id "790378854888",
-                                :almonds-aws-id "sg-49619b24"}]))
+                                :almonds-aws-id "sg-c104c6ac"}]))
 
 (defn retrieve-resource-and-deps [almonds-type]
   (let [resources (retrieve-resource almonds-type)]
     (concat resources (retrieve-dependents resources))))
 
+(comment (retrieve-resource :security-group))
 (comment (retrieve-resource-and-deps :security-group))
-
-(defn pull-resource [almonds-type]
-  (doall (map drop-from-remote-state (dependent-types {:almonds-type almonds-type})))
-  (if (is-dependent? {:almonds-type almonds-type})
-    (pull-resource (parent-type {:almonds-type almonds-type}))
-    (do 
-      (when verbose-mode? (println "Pulling almonds-type" almonds-type))
-      (drop-from-remote-state almonds-type)
-      (swap! remote-state #(concat %
-                                   (retrieve-resource-and-deps almonds-type))))))
-
-(comment (pull-resource :network-acl))
 
 (defn sanitize-resources [resources]
   (->> resources
        (filter #(:almonds-type %))
        (map sanitize)))
 
-(defn pull []
-  (set-already-retrieved-remote)
-  (doall (map pull-resource pull-sequence))
-  @remote-state)
+(defn filter-by-stack [coll]
+  (filter #(= (get-stack) (:almonds-stack %)) coll))
+
+(comment (filter-by-stack [{:almonds-stack :dev} {:almonds-stack :default}]))
+
+(defn pull
+  ([] (do (set-already-retrieved-remote)
+          (flatten (doall (map pull pull-sequence)))))
+  ([almonds-type] (do (doall (map drop-from-remote-state (dependent-types {:almonds-type almonds-type})))
+                      (if (is-dependent? {:almonds-type almonds-type})
+                        (pull (parent-type {:almonds-type almonds-type}))
+                        (do
+                          (when verbose-mode? (println "Pulling almonds-type" almonds-type))
+                          (drop-from-remote-state almonds-type)
+                          (let [resources (filter-by-stack (retrieve-resource-and-deps almonds-type))]
+                            (swap! remote-state #(concat % resources))
+                            resources))))))
 
 (comment (pull))
+(comment (pull :network-acl))
 
 ;;;;;;;;;;;;;; get-functions for filtering remote and local resources ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -173,6 +180,7 @@
   (when (validate resource)
     (let [prepared-resource (-> resource
                                 prepare-almonds-tags
+                                add-stack-key
                                 pre-staging)
           deps (get-default-dependents prepared-resource)]
       (doall (map add-resource deps))
@@ -195,7 +203,7 @@
 (comment (add "/Users/murtaza/almonds_stack.clj"))
 
 (defn expel [& args]
-  (first (map expel-resource (apply get-local args))))
+  (first (doall (map expel-resource (apply get-local args)))))
 
 ;;;;;;;;;;;;;;;;; ops ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -205,7 +213,7 @@
       (doseq [v to-delete]
         (when verbose-mode? (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v))))
         (delete v))
-      (pull-resource r-type))))
+      (pull r-type))))
 
 (defn- create-op! [coll]
   (doseq [r-type create-sequence]
@@ -214,7 +222,7 @@
         (when verbose-mode? (do (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
                                 (println (print-str v))))
         (create v))
-      (pull-resource r-type))))
+      (pull r-type))))
 
 (defn- recreate-op! 
   ([coll] (recreate-op! coll coll))

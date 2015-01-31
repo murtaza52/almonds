@@ -23,3 +23,5 @@
 (def aws-creds (atom {}))
 
 (def stack (atom :default))
+
+(defn get-stack [] @stack)

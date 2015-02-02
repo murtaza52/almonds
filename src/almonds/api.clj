@@ -4,7 +4,7 @@
             [almonds.utils :refer :all]
             [slingshot.slingshot :refer [throw+ try+]]
             [clojure.data :as data]
-            [clojure.set :refer [difference intersection]]
+            [clojure.set :refer [difference intersection] :as set]
             [almonds.api-utils :refer :all]
             [amazonica.core :as aws-core :refer [defcredential]]
             [almonds.handler :as handler]))
@@ -142,7 +142,11 @@
 ;;;;;;;;;;;;;;;;; compare ;;;;;;;;;;;;;;;;;;;;;;
 
 (defn is-consistent? [almonds-tags]
-  (= (apply get-remote almonds-tags) (apply get-local almonds-tags)))
+  (if (diff-maps
+       (first (apply get-remote almonds-tags))
+       (first (apply get-local almonds-tags)))
+    false
+    true))
 
 (defn diff-tags [& args]
   (->> (data/diff (into #{} (->> (apply get-local-tags args)
@@ -150,27 +154,38 @@
                   (into #{} (->> (apply get-remote-tags args)
                                  (map #(into #{} %)))))
        (into-seq)
-       (zipmap [:only-in-local :only-on-remote])))
+       (zipmap [:only-in-local :only-on-remote :inconsistent])
+       (#(update-in % [:inconsistent] (fn[v] (remove is-consistent? v))))))
+
+(comment (diff-tags))
 
 (defn diff [& args]
-  (let [{:keys [only-on-remote only-in-local]} (apply diff-tags args)]
+  (let [{:keys [only-on-remote only-in-local inconsistent]} (apply diff-tags args)]
     {:only-in-local (mapcat #(apply get-local %) only-in-local) 
-     :only-on-remote (mapcat #(apply get-remote %) only-on-remote)}))
+     :only-on-remote (mapcat #(apply get-remote %) only-on-remote)
+     :inconsistent (mapcat #(apply get-local %) inconsistent)}))
+
+(comment (diff))
+
+(defn diff-resource [tags]
+  (zipmap [:in-local :on-remote] (diff-maps (first (apply get-local tags)) (first (apply get-remote tags)))))
+
+(comment (diff-resource [:instance])
+         (diff-resource [:web-tier :sandbox :web-server :subnet]))
 
 (defn compare-resources [& args]
-  {:in-local (apply get-local args)
-   :on-remote (apply get-remote args)})
-
-(defn compare-resources-raw [& args]
   (hash-map :in-local (apply get-local args)
             :on-remote (apply get-remote-raw args)))
 
 ;;;;;;;;;;;;;;; get ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn get-only-remote [& args]
+(defn get-inconsistent [& args]
+  (:inconsistent (apply diff args)))
+
+(defn get-only-on-remote [& args]
   (:only-on-remote (apply diff args)))
 
-(defn get-only-local [& args]
+(defn get-only-on-local [& args]
   (:only-in-local (apply diff args)))
 
 ;;;;;;;;;;;; functions for manipulating state ;;;;;;;;;;;;;;;;;;;
@@ -240,9 +255,14 @@
   (let [{:keys [only-on-remote]} (apply diff args)]
     (delete-op! only-on-remote)))
 
+(defn sync-only-inconsistent [& args]
+  (let [{:keys [inconsistent]} (apply diff args)]
+    (recreate-op! inconsistent)))
+
 (defn sync-all [& args]
-  (let [{:keys [only-in-local only-on-remote]} (apply diff args)]
+  (let [{:keys [only-in-local only-on-remote inconsistent]} (apply diff args)]
     (delete-op! only-on-remote)
+    (recreate-op! inconsistent)
     (create-op! only-in-local)))
 
 (defn recreate-resources [& args]
@@ -285,18 +305,34 @@
 (defn find-deps-aws-id [id]
   (filter #(is-dependent-on? id %) (get-remote-raw)))
 
-(defn find-deps [m]
+(defn direct-deps [m]
   (when-let [almonds-tags (:almonds-tags (get-local-resource m))]
     (filter #(is-dependent-on? almonds-tags %) (get-local))))
 
-;; (defn find-all-deps 
-;;   ([m]
-;;    (find-all-deps m []))
-;;   ([m all-deps] 
-;;     (let [direct-deps (find-deps m)]
-;;       (if-not (seq direct-deps)
-;;         all-deps
-;;         (map #(recur % (concat all-deps %)) direct-deps)))))
+(defn find-all-deps 
+  ([m]
+   (find-all-deps m []))
+  ([m all-deps] 
+   (if-not (seq (direct-deps m))
+     all-deps
+     (reduce (fn [result this-dep] 
+               (if-not (contains? result this-dep)
+                 (find-all-deps this-dep (conj result this-dep))
+                 result))
+             (direct-deps m)
+             #{}))))
+
+(find-all-deps {:almonds-type :vpc
+                :almonds-tags [:sandbox :web-tier]
+                :cidr-block "10.3.0.0/16"
+                :instance-tenancy "default"})
+
+(direct-deps {:almonds-type :vpc
+              :almonds-tags [:sandbox :web-tier]
+              :cidr-block "10.3.0.0/16"
+              :instance-tenancy "default"})
+
+
 
 (defn delete-deps-aws-id [id]
   (delete-op! (find-deps-aws-id id)))

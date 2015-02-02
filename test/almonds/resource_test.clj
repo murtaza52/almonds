@@ -47,8 +47,8 @@
 ;; (get-local :vpc)
 ;; (get-remote :vpc)
 ;; (get-remote-raw :vpc)
-;; (compare-resources :vpc)
-;; (compare-resources-raw :vpc)
+;; (compare-resource :vpc)
+;; (compare-resource-raw :vpc)
 
 
 ;; workflow
@@ -123,8 +123,8 @@
 (def security-rule2 {:almonds-type :security-rule
                      :cidr-ip "27.0.0.0/0"
                      :ip-protocol "tcp"
-                     :from-port 7015
-                     :to-port 7015
+                     :from-port 7016
+                     :to-port 7016
                      :egress false
                      :group-id [:classic 2]})
 
@@ -145,34 +145,27 @@
                :instance-initiated-shutdown-behavior "stop"
                :image-id "ami-66d0b40e"})
 
-(def instance2 {:almonds-type :instance
-                :almonds-tags [:dev-box 2]
-                :security-group-ids [[:classic 2]]
-                :key-name "ac"
-                :instance-type "t1.micro"
-                :instance-initiated-shutdown-behavior "stop"
-                :image-id "ami-66d0b40e"})
-
-(def eip-assoc {:almonds-type :eip-assoc :instance-id [:dev-box 2] :public-ip "107.22.188.118"})
-
+(def eip-assoc {:almonds-type :eip-assoc :instance-id [:dev-box] :public-ip "23.23.196.90"})
 
 (comment
-  ;;(aws-ec2/describe-regions)
+  (compare-resource :instance)
+  
   (pull)
-  (add [test-vpc test-subnet test-acl acl-entry security-group-classic security-rule2])
+  (add [test-vpc test-subnet test-acl acl-entry security-group-classic security-rule2 instance eip-assoc])
   (add security-group-classic-dev)
   (add "/Users/murtaza/almonds_stack.clj")
   (add security-group)
   (add [{:almonds-type :security-rule, :group-id [:sandbox :web-tier :app-box], :egress true, :cidr-ip "0.0.0.0/0", :ip-protocol "-1"}])
   (add test-subnet)
-  (count (get-remote-raw :instance 2 :dev-box))
-  (get-local)
+  (get-remote-raw :security-rule)
+  (get-local :security-rule)
   (pull-resource :elastic-ip)
   (expel)
+  (diff)
   (diff-tags)
-  (sync-all)
+  (sync-all :security-rule)
   (sync-only-to-create)
-  (compare-resources :instance)
+  (diff-resource [:web-tier :sandbox :web-server :subnet])
   (get-remote)
   (clear-all)
   (sync-only-to-delete)

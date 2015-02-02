@@ -274,3 +274,22 @@
    (add-stack-key resource (get-stack)))
   ([resource stack]
    (assoc resource :almonds-stack stack)))
+
+
+(defn filter-map [filter-set m]
+  (apply merge
+         (map #(apply hash-map %)
+              (filter (fn[[k v]]
+                        (k filter-set))
+                      m))))
+
+(comment (filter-map #{:a :b :c} {:a 2 :b 3 :f 6}))
+
+(defn diff-maps [f s]
+  (let [common-keys (intersection (into-set (keys f)) (into-set (keys s)))]
+    (seq (remove nil? (take 2 (clojure.data/diff (filter-map common-keys f) (filter-map common-keys s)))))))
+
+(comment (diff-maps {:a 1 :b 2 :c 3 :e 6} {:a 2 :b 3 :d 5 :e 6})
+         (diff-maps {:a 1 :b 2 :c 3 :e 6} {:a 1 :b 2 :d 5 :e 6}))
+
+(comment (diff-maps {:a 2 :b 3 :c 4} {:a 2}))

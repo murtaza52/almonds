@@ -11,6 +11,8 @@
 (defn prepare-request [m]
   (as-> m m
     (update-in m [:security-group-ids] #(map aws-id %))
+    (merge {:min-count 1} m)
+    (merge {:max-count 1} m)
     (dissoc m :almonds-tags :almonds-type)))
 
 (defmethod create :instance [m]
@@ -47,9 +49,7 @@
     (update-in m
                [:security-group-ids]
                (fn[groups]
-                 (map #(add-type :security-group %) groups)))
-    (if-not (:min-count m) (assoc m :min-count 1) m)
-    (if-not (:max-count m) (assoc m :max-count 1) m)))
+                 (map #(add-type :security-group %) groups)))))
 
 (defmethod get-default-dependents :instance [m]
   [])

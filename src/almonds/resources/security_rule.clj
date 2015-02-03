@@ -51,7 +51,7 @@
     (assoc m :egress false)
     m))
 
-(add-default-egress-field {:a 2 :egress true})
+(comment (add-default-egress-field {:a 2 :egress true}))
 
 (defmethod pre-staging :security-rule [m]
   (as-> m m

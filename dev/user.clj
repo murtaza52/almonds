@@ -9,6 +9,7 @@
 
 (api/set-aws-credentials (-> env :aws :access-key) (-> env :aws :secret))
 (api/set-aws-region (-> env :aws :region))
+(api/set-aws-bucket (-> env :aws :bucket-name))
 
 (api/set-stack :default)
 

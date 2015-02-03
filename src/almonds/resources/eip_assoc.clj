@@ -4,7 +4,8 @@
             [almonds.contract :refer :all]
             [almonds.api :refer :all]
             [almonds.api-utils :refer :all]
-            [almonds.state :refer :all]))
+            [almonds.state :refer :all]
+            [slingshot.slingshot :refer [throw+ try+]]))
 
 (defmethod validate :eip-assoc [m]
   true)
@@ -15,7 +16,16 @@
     (dissoc m :almonds-tags :almonds-type)))
 
 (defmethod create :eip-assoc [m]
-  (aws-ec2/associate-address (prepare-request m)))
+  (letfn [(create-fn []
+            (aws-ec2/associate-address (prepare-request m)))]
+    (wait-on-state
+     #(is-running? (first (apply get-remote (:instance-id m))))
+     create-fn
+     #(pull :instance)
+     #(throw+ {:msg "Unable to associate elastic IP with the instance as it is not running." :args m})
+     #(pull :instance)
+     5
+     10000)))
 
 (defmethod prepare-almonds-tags :eip-assoc [m]
   (as-> m m
@@ -37,9 +47,6 @@
   (if (ec2-classic? m)
       (aws-ec2/disassociate-address {:public-ip (:public-ip m)})
       (aws-ec2/disassociate-address {:association-id (:association-id m)})))
-
-;; (defmethod aws-id-key :eip-assoc [_]
-;;   nil)
 
 (defmethod pre-staging :eip-assoc [m]
   m)

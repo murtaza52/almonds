@@ -4,7 +4,8 @@
             [almonds.contract :refer :all]
             [almonds.api :refer :all]
             [almonds.protocol-numbers :refer :all]
-            [almonds.state :refer :all]))
+            [almonds.state :refer :all]
+            [slingshot.slingshot :refer [throw+]]))
 
 (defmethod validate :security-group [m]
   true)
@@ -25,11 +26,69 @@
 
 (defmethod retrieve-all :security-group [_]
   (-> (aws-ec2/describe-security-groups)
-    vals
-    first))
+      vals
+      first))
+
+(defn instance-has-security-group? [{:keys [security-group-ids] :as instance} {:keys [almonds-tags] :as security-group}]
+  (if (seq (filter #(= % almonds-tags) security-group-ids))
+    true
+    false))
+
+(comment (instance-has-security-group?
+          {:security-group-ids '(#{:security-group 2 :classic})}
+          {:almonds-tags #{:security-group 2 :classic}}))
+
+(defn find-instance-using-group [security-group]
+  (filter #(instance-has-security-group? % security-group) (get-remote :instance)))
+
+(comment (find-instance-using-group {:description "Security_Group; 2; Classic",
+                                     :tags
+                                     [{:value "#{:security-group 2 :classic}", :key ":almonds-tags"}
+                                      {:value ":default", :key ":almonds-stack"}
+                                      {:value "Security_Group; 2; Classic", :key "Name"}
+                                      {:value ":security-group", :key ":almonds-type"}],
+                                     :ip-permissions [],
+                                     :group-id "sg-c104c6ac",
+                                     :almonds-tags #{:security-group 2 :classic},
+                                     :almonds-type :security-group,
+                                     :almonds-stack :default,
+                                     :group-name "Security_Group; 2; Classic",
+                                     :ip-permissions-egress [],
+                                     :owner-id "790378854888",
+                                     :almonds-aws-id "sg-c104c6ac"}))
+
+(defn security-group-is-not-attached? [m]
+  (not (if (seq (find-instance-using-group m)) true false)))
+
+(comment (security-group-is-not-attached? {:description "Security_Group; 2; Classic",
+                                           :tags
+                                           [{:value "#{:security-group 2 :classic}", :key ":almonds-tags"}
+                                            {:value ":default", :key ":almonds-stack"}
+                                            {:value "Security_Group; 2; Classic", :key "Name"}
+                                            {:value ":security-group", :key ":almonds-type"}],
+                                           :ip-permissions [],
+                                           :group-id "sg-c104c6ac",
+                                           :almonds-tags #{:security-group 2 :classic},
+                                           :almonds-type :security-group,
+                                           :almonds-stack :default,
+                                           :group-name "Security_Group; 2; Classic",
+                                           :ip-permissions-egress [],
+                                           :owner-id "790378854888",
+                                           :almonds-aws-id "sg-c104c6ac"}))
 
 (defmethod delete :security-group [m]
-  (aws-ec2/delete-security-group {:group-id (aws-id (:almonds-tags m))}))
+  (letfn [(delete-fn [] 
+            (aws-ec2/delete-security-group {:group-id (aws-id (:almonds-tags m))}))] 
+    (wait-on-state
+     #(security-group-is-not-attached? m)
+     delete-fn
+     #(do
+        (println "Unable to delete the security group as it is still associated with an instance. Retrieving the state of instance and retrying.")
+        (pull :instance))
+     #(throw+ {:msg "Unable to delete the security group as it is still attached to an instance. Either terminate the instance or detach the security group." :args m})
+     #(pull :instance)
+     5
+     15000)))
 
 (defmethod aws-id-key :security-group [_]
   :group-id)
@@ -43,10 +102,10 @@
 (defmethod get-default-dependents :security-group [m]
   (if (:vpc-id m)
     [{:almonds-type :security-rule,
-                    :group-id (:almonds-tags m),
-                    :egress true,
-                    :cidr-ip "0.0.0.0/0",
-                    :ip-protocol "-1"}]
+      :group-id (:almonds-tags m),
+      :egress true,
+      :cidr-ip "0.0.0.0/0",
+      :ip-protocol "-1"}]
     []))
 
 (defmethod is-dependent? :security-group [_]

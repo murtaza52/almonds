@@ -3,12 +3,14 @@
             [clojure.pprint :refer [pprint]] 
             [camel-snake-kebab.core :as kebab]
             [amazonica.aws.ec2 :as aws-ec2]
+            [amazonica.aws.s3 :as s3]
             [almonds.contract :refer :all]
             [schema.core :as schema]
             [almonds.state :refer :all]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [slingshot.slingshot :refer [throw+ try+]]))
+            [slingshot.slingshot :refer [throw+ try+]]
+            [almonds.state :as state]))
 
 (defn remove-empty [coll]
   (->> coll
@@ -139,16 +141,6 @@
 
 (comment (safe-reader "arn:aws:cloudformation:us-east-1:790378854888:stack/CentralVpcTwVpn/1c131880-6993-11e4-bc94-50fa5262a89c")
          (safe-reader "{:a 2}"))
-
-(defn create-tags [resource-id tags]
-  (when verbose-mode? (println (str "Creating aws-tags for " resource-id " with tags" (print-str tags))))
-  (aws-ec2/create-tags {:resources [resource-id] :tags tags}))
-
-(defn create-aws-tags [id m]
-  (->> m
-    almonds-tags
-    almonds->aws-tags
-    (create-tags id)))
 
 (defn add-almonds-keys [m]
   (let [{:keys [almonds-tags almonds-type almonds-stack]} (aws->almonds-tags (:tags m))]
@@ -293,3 +285,13 @@
          (diff-maps {:a 1 :b 2 :c 3 :e 6} {:a 1 :b 2 :d 5 :e 6}))
 
 (comment (diff-maps {:a 2 :b 3 :c 4} {:a 2}))
+
+(def some-bytes (.getBytes (print-str {:a 2 :b 3})))
+(def input-stream (java.io.ByteArrayInputStream. (.getBytes (print-str {:a 2 :b 3}))))
+
+(comment  (s3/put-object :bucket-name @state/aws-bucket-name
+                         :key @state/stack
+                         :input-stream input-stream)
+
+          (s3/get-object :bucket-name @state/aws-bucket-name
+                         :key @state/stack))

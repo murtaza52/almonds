@@ -12,7 +12,8 @@
                  [prismatic/schema "0.2.6"]
                  [camel-snake-kebab "0.3.0" :exclusions [org.clojure/clojure]]
                  [environ "1.0.0"]
-                 [org.clojure/tools.cli "0.3.1"]]
+                 [org.clojure/tools.cli "0.3.1"]
+                 [circuit-breaker "0.1.7"]]
   :bin {:name "almonds"
         :bin-path "~/bin"}
   :profiles {:uberjar {:aot :all}}

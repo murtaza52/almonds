@@ -46,9 +46,13 @@
                     :owner-id "790378854888",
                     :ip-permissions-egress []}))
 
-(defn is-terminated? [m]
-  (if (= "terminated" (-> m :state :name)) true false))
+(defn instance-state? [state]
+  (fn [m]
+    (if (= state (-> m :state :name)) true false)))
+
+(def is-terminated? (instance-state? "terminated"))
+
+(def is-running? (instance-state? "running"))
 
 (comment  (is-terminated? {:state {:name "terminated"}})
           (is-terminated? {:s {:name "terminated"}}))
-

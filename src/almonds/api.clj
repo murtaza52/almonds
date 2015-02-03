@@ -7,7 +7,9 @@
             [clojure.set :refer [difference intersection] :as set]
             [almonds.api-utils :refer :all]
             [amazonica.core :as aws-core :refer [defcredential]]
-            [almonds.handler :as handler]))
+            [almonds.handler :as handler]
+            [circuit-breaker.core :as cb]
+            [amazonica.aws.ec2 :as aws-ec2]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; config ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -33,6 +35,9 @@
 (comment (set-aws-credentials "a" "b")
          (set-aws-region "c")
          (amazonica.aws.ec2/describe-regions))
+
+(defn set-aws-bucket [v]
+  (reset! aws-bucket-name v))
 
 ;;;;;;;;;;;;;;; clear states ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -222,11 +227,20 @@
 
 ;;;;;;;;;;;;;;;;; ops ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(comment  (cb/defncircuitbreaker :crud {:timeout 10 :threshold 2})
+
+          (cb/wrap-with-circuit-breaker :crud
+                                        (fn[] 
+                                          (println "helo work")
+                                          (throw+ {:msg "error"}))))
+
 (defn- delete-op! [coll]
   (doseq [r-type delete-sequence]
     (when-let [to-delete (seq (filter-resources coll r-type))]
       (doseq [v to-delete]
-        (when verbose-mode? (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v))))
+        (when verbose-mode? (do
+                              (newline)
+                              (println (str "Deleting " r-type " with :almonds-tags " (:almonds-tags v)))))
         (delete v))
       (pull r-type))))
 
@@ -234,8 +248,10 @@
   (doseq [r-type create-sequence]
     (when-let [to-create (seq (filter-resources coll r-type))]
       (doseq [v to-create]
-        (when verbose-mode? (do (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
-                                (println (print-str v))))
+        (when verbose-mode? (do
+                              (newline)
+                              (println (str "Creating " r-type " with :almonds-tags " (:almonds-tags v)))
+                              (println (print-str v))))
         (create v))
       (pull r-type))))
 
@@ -277,7 +293,7 @@
   (create-op! (apply get-local args)))
 
 (defn aws-id [almonds-tags]
-  (let [resources (remove is-terminated? (apply get-remote-raw almonds-tags))]
+  (let [resources (apply get-remote-raw almonds-tags)]
     (when-not (seq resources) (throw+ {:operation 'aws-id
                                        :args (print-str almonds-tags)
                                        :msg "Unable to find aws-id for the given almonds-tags."}))
@@ -332,7 +348,61 @@
               :cidr-block "10.3.0.0/16"
               :instance-tenancy "default"})
 
-
-
 (defn delete-deps-aws-id [id]
   (delete-op! (find-deps-aws-id id)))
+
+;; http://stackoverflow.com/questions/1879885/clojure-how-to-to-recur-upon-exception
+(defn try-times*
+  "Executes thunk. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [n sleep-time thunk]
+  (loop [n n]
+    (if-let [result (try
+                      [(thunk)]
+                      (catch Exception e
+                        (when (zero? n)
+                          (throw e))))]
+      (result 0)
+      (do
+        (Thread/sleep sleep-time)
+        (recur (dec n))))))
+
+(defmacro try-times
+  "Executes body. If an exception is thrown, will retry. At most n retries
+  are done. If still some exception is thrown it is bubbled upwards in
+  the call chain."
+  [n sleep-time & body]
+  `(try-times* ~n ~sleep-time (fn [] ~@body)))
+
+(comment (try-times 5 500 (do 
+                            (println "throwing an error")
+                            (throw+ {:msg "boy this is bad"}))))
+
+(defn wait-on-state
+  ([f-check f-execute f-refresh f-error f-success] 
+   (wait-on-state f-check f-execute f-refresh f-error f-success 5 1000))
+  ([f-check f-execute f-refresh f-error f-success tries sleep-time]
+   (loop [n tries]
+     (if (< n 0)
+       (f-error)
+       (if (f-check)
+         (do (f-execute)
+             (f-success))
+         (do (Thread/sleep sleep-time)
+             (f-refresh)
+             (recur (- n 1))))))))
+
+(comment (wait-on-state is-running? #(println "Hello World") [:dev-box :instance] (fn[](throw+ {:msg "Unable to attach eip to the instance"})) 10 1000))
+
+(defn create-tags [resource-id tags]
+  (try-times 5
+             2000 
+             (when verbose-mode? (println (str "Creating aws-tags for " resource-id ".")))
+             (aws-ec2/create-tags {:resources [resource-id] :tags tags})))
+
+(defn create-aws-tags [id m]
+  (->> m
+       almonds-tags
+       almonds->aws-tags
+       (create-tags id)))

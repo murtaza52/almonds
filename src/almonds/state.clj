@@ -24,4 +24,6 @@
 
 (def stack (atom :default))
 
+(def aws-bucket-name (atom ""))
+
 (defn get-stack [] @stack)

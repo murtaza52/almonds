@@ -1,23 +1,22 @@
 
-# Table of Contents
+# t O c 
 
-[what](#sec-1)
-
-[why](#sec-2)
-[status](#sec-3)
-[usage](#sec-4)
-  [Releases](#sec-4-1)
-  [Credentials](#sec-4-2)
-    - [how](#sec-5)
-      - [defining resources](#sec-5-1)
-      - [state management](#sec-5-2)
-      - [staging resources](#sec-5-3)
-      - [diff](#sec-5-4)
-      - [api functions](#sec-5-5)
-      - [push](#sec-5-6)
-      - [modifying resources](#sec-5-7)
-      - [recreating resources](#sec-5-8)
-    - [acknowledgements](#sec-6)
+[what](#sec-1)</br>
+[why](#sec-2)</br>
+[status](#sec-3)</br>
+[usage](#sec-4)</br>
+  [Releases](#sec-4-1)</br>
+  [Credentials](#sec-4-2)</br>
+[how](#sec-5)</br>
+  [defining resources](#sec-5-1)</br>
+  [state management](#sec-5-2)</br>
+  [staging resources](#sec-5-3)</br>
+  [diff](#sec-5-4)</br>
+  [api functions](#sec-5-5)</br>
+  [push](#sec-5-6)</br>
+  [modifying resources](#sec-5-7)</br>
+  [recreating resources](#sec-5-8)</br>
+[acknowledgements](#sec-6)</br>
 
 
 <a name="sec-1"></a>

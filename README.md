@@ -4,12 +4,10 @@
 [what](#sec-1)
 
 [why](#sec-2)
-
 [status](#sec-3)
-
 [usage](#sec-4)
-      - [Releases](#sec-4-1)
-      - [Credentials](#sec-4-2)
+  [Releases](#sec-4-1)
+  [Credentials](#sec-4-2)
     - [how](#sec-5)
       - [defining resources](#sec-5-1)
       - [state management](#sec-5-2)

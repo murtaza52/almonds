@@ -5,8 +5,8 @@
 [why](#sec-2)</br>
 [status](#sec-3)</br>
 [usage](#sec-4)</br>
-&nbsp;&nbsp; [Releases](#sec-4-1)</br>
-&nbsp;&nbsp; [Credentials](#sec-4-2)</br>
+&nbsp;&nbsp; [releases](#sec-4-1)</br>
+&nbsp;&nbsp; [credentials](#sec-4-2)</br>
 [how](#sec-5)</br>
 &nbsp;&nbsp; [defining resources](#sec-5-1)</br>
 &nbsp;&nbsp; [state management](#sec-5-2)</br>

@@ -1,5 +1,8 @@
-    - [what](#sec-1)
-    - [why](#sec-2)
+
+# Table of Contents
+
+[what](#sec-1)
+[why](#sec-2)
     - [status](#sec-3)
     - [usage](#sec-4)
       - [Releases](#sec-4-1)
@@ -15,7 +18,9 @@
       - [recreating resources](#sec-5-8)
     - [acknowledgements](#sec-6)
 
-# what<a id="sec-1" name="sec-1"></a>
+
+<a name="sec-1"></a>
+# what
 
 *almonds* is a library for realizing the ideal of infrastructure as code. It operates in the same space that of AWS's Cloud Formation and Hashicorp's Terraform. It takes inspiration from both, tries to address their shortcomings, and introduces features which are developer friendly.
 

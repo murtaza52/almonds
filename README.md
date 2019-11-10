@@ -2,9 +2,12 @@
 # Table of Contents
 
 [what](#sec-1)
+
 [why](#sec-2)
-    - [status](#sec-3)
-    - [usage](#sec-4)
+
+[status](#sec-3)
+
+[usage](#sec-4)
       - [Releases](#sec-4-1)
       - [Credentials](#sec-4-2)
     - [how](#sec-5)

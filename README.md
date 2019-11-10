@@ -5,17 +5,17 @@
 [why](#sec-2)</br>
 [status](#sec-3)</br>
 [usage](#sec-4)</br>
-  [Releases](#sec-4-1)</br>
-  [Credentials](#sec-4-2)</br>
+&nbsp;&nbsp; [Releases](#sec-4-1)</br>
+&nbsp;&nbsp; [Credentials](#sec-4-2)</br>
 [how](#sec-5)</br>
-  [defining resources](#sec-5-1)</br>
-  [state management](#sec-5-2)</br>
-  [staging resources](#sec-5-3)</br>
-  [diff](#sec-5-4)</br>
-  [api functions](#sec-5-5)</br>
-  [push](#sec-5-6)</br>
-  [modifying resources](#sec-5-7)</br>
-  [recreating resources](#sec-5-8)</br>
+&nbsp;&nbsp; [defining resources](#sec-5-1)</br>
+&nbsp;&nbsp; [state management](#sec-5-2)</br>
+&nbsp;&nbsp; [staging resources](#sec-5-3)</br>
+&nbsp;&nbsp; [diff](#sec-5-4)</br>
+&nbsp;&nbsp; [api functions](#sec-5-5)</br>
+&nbsp;&nbsp; [push](#sec-5-6)</br>
+&nbsp;&nbsp; [modifying resources](#sec-5-7)</br>
+&nbsp;&nbsp; [recreating resources](#sec-5-8)</br>
 [acknowledgements](#sec-6)</br>
 
 

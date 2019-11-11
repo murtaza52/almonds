@@ -24,19 +24,21 @@
 
 *almonds* is a library for realizing the ideal of infrastructure as code. It operates in the same space that of AWS's Cloud Formation and Hashicorp's Terraform. It takes inspiration from both, tries to address their shortcomings, and introduces features which are developer friendly.
 
+It applies the concepts of functional programming to infrastructure, and provides a better way to model its interactions.
+
 # why<a id="sec-2" name="sec-2"></a>
 
-There are few problems associated with the current crop of tools - 
+These are the problems associated with the current crop of tools - 
 
 -   State Management 
     -   **Terraform:** this is the Achille's heel of terraform. It maintains state in a file which is its source of truth. This file has to be shared/synced when multiple developers are working simultaneously, and is a pain. The scenario (though unlikely) of the state file being irrecoverable will be disastrous.
-    -   **CloudFormation:** cloudformation does a much better job, it maintains identity of each resource, and recreates the state every time it is run. However there are horror stories of its state getting corrupted during failed updates, and the only way out is to call in the AWS support team.
+    -   **CloudFormation:** CF does a much better job, it maintains identity of each resource, and recreates the state every time it is run. However there are horror stories of its state getting corrupted during failed updates, and the only way out is to call in the AWS support team.
     -   **Almonds:** almonds borrows cloudformation's way of specifying the identity of resources. However this functionality is explicit and user can choose to set the identity. The state is also always recreated and is explicit to the user, who can inspect both the local state and the remote state. The user can also diff between the local and remote state's (an idea borrowed from terraform), and even compare individual resources between state's.
 -   Unpredictability  
-    -   **Terraform and CloudFormation:** both try to be /"intelligent"/ by calculating the dependencies of resources, and then performing CRUD on them too. This leads to unwanted behaviour and nasty surprises. Example - If the security group of an instance is changed, then both the tools will **also** delete and recreate the instance. A simple update can turn into a nightmare. You never know which operation will succeed and which will fail.
-    -   **Almonds:** almonds is /"dumb"/, it leaves the intelligence to the user. It only performs the specific operation on the specific group of resources that are specified. It will not perform those operations on the dependencies by default, but this can be specified too. All operations are explicit and there are no surprises.
+    -   **Terraform and CloudFormation:** both try to be *intelligent* by calculating the dependencies of resources, and then performing CRUD on them. This leads to unwanted behaviour and nasty surprises. Example - If the security group of an instance is changed, then both the tools will **also** delete and recreate the instance. A simple update can turn into a nightmare. You never know which operation will succeed and which will fail.
+    -   **Almonds:** almonds is *dumb*, it leaves the intelligence to the user. It only performs the specific operation on the specific group of resources that are specified. It will not perform those operations on the dependencies by default, but this can be specified too. All operations are explicit and there are no surprises.
 -   DSL 
-    -   **Terraform and CloudFormation:** both of them provide an external DSL to specify resources. CloudFormation has a minimal one while terraform provides an extensive one. IMHO this is a major mistake, Terraform's DSL is a pain to use, and looking at the DSL it seems they are trying to recreate a programming language, albiet a very clunky one.
+    -   **Terraform and CloudFormation:** both of them provide an external DSL to specify resources. IMHO this is a major mistake, Terraform's DSL is a pain to use, and looking at the DSL it seems they are trying to recreate a programming language, albeit a very clunky one.
     -   **Almonds:** almonds will not provide an external DSL. Currently it can be used in you JVM projects as a library. It will provide limited command line functionality where the input will be a plain json file. Your favourite programming language can be used to generate the json if needed.
 -   Coarse Grained
     -   **Terraform and CloudFormation:** both of these are hammers, and your every operation better be a nail. Your context is a file/folder, and all crud operations will be applied on all resources in that context.
@@ -44,9 +46,9 @@ There are few problems associated with the current crop of tools -
 
 # status<a id="sec-3" name="sec-3"></a>
 
-*almonds* is a very young tool and you will encounter bugs. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources in next few months. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
+*almonds* is a very young tool and you will encounter bugs. It currently only provides for the CRUD of a few EC2 resources, but has plans to support all EC2 resources. It can be also extended to include resources from providers other than EC2, if there is sufficient interest. PR's / suggestions / criticisms are all very much welcome :)
 
-It can be used as a library in your clojure or JVM project. In near future you would also be able to run it from the command line with json as input. However the json will be plain vanilla json and no DSL will be added. The json can be generated using your preferred language.
+It can be used as a library in your clojure or JVM project. In near future you would also be able to run it from the command line with json as input. The json can be generated using your preferred language.
 
 # usage<a id="sec-4" name="sec-4"></a>
 
